@@ -71,6 +71,22 @@ Release preparation is offline. After publishing the code, separately verify the
 
 `docs/installer.js` is a separate Scriptable script. It checks the pinned widget and installed version, refuses downgrade/malformed/conflicting versions, asks before replacing a script and saves a code backup. It must not execute downloaded code or read widget credentials/cache. Preserve an existing FordPassWidgets script name so its widgets remain connected; never silently replace a predecessor project.
 
+## GitHub repository safeguards
+
+`main` requires a pull request and the up-to-date **offline-checks** GitHub Actions result, including for administrators. Force pushes and branch deletion are blocked, and review conversations must be resolved. Merge commits preserve the code commits referenced by immutable installer URLs; squash/rebase merging is disabled.
+
+The required job checks the deterministic build, JavaScript syntax, offline regressions, version increases for changed widget bytes, and agreement between the version, manifest, installer checksum/source commit and install page. It runs on pull requests, `main` pushes and `v*` tag pushes with read-only repository permissions, a pinned checkout action and a bounded job timeout.
+
+A version-tag run additionally requires the exact `vMAJOR.MINOR.PATCH` name from `source/version.json`, a checkout matching that tag, and a tagged commit reachable from `origin/main`. It checks the release pin without treating a tag event's previous ref as a version-bump base. Tag checks run **after a tag is pushed**: confirm that run succeeds before publishing a release. For a future release such as `v0.1.1`, run from the matching tag's checkout after fetching `origin/main`:
+
+```sh
+python3 source/check-tag.py v0.1.1
+```
+
+An active tag ruleset blocks updates and deletion of `v*` tags, without bypass actors. Publish fixes under a new version rather than moving an existing tag. Secret scanning and secret push protection are enabled in GitHub.
+
+Immutable releases are enabled for future publications. Create a **draft** release, attach and verify all assets/checksums, then publish; GitHub locks the published assets and associated tag. This setting does not retroactively lock the existing `v0.1.0` release. Its installer still verifies the original reviewed commit and SHA-256. See [GitHub's immutable-release guide](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).
+
 ## Static install website
 
 GitHub Pages publishes `main` → `/docs` at **https://markse123.github.io/FordPassWidgets/**. `.nojekyll` keeps plain static assets. `index.html`, `styles.css`, `site.js` and `icon.svg` provide the dark installation site. Its examples are synthetic illustrations, not vehicle screenshots or verified live telemetry.
