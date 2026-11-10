@@ -1,0 +1,14 @@
+{
+  "patches": [
+    {
+      "label": "keep cached raw and redacted Pro Power reports reachable from details",
+      "before": "['Read cached Pro Power', 'Request status once…'].forEach(label => menu.addAction(label));",
+      "after": "['Read cached Pro Power', 'Request status once…', 'View raw signals', 'Copy redacted report'].forEach(label => menu.addAction(label));"
+    },
+    {
+      "label": "route Pro Power raw and copy actions through guarded cached report view",
+      "before": "    } else if (choice === 1) await this.confirmProPowerStatus(prefs);",
+      "after": "    } else if (choice === 1) await this.confirmProPowerStatus(prefs);\n    else if (choice === 2) await this.proPowerReport(prefs, false);\n    else if (choice === 3) await this.proPowerReport(prefs, true);"
+    }
+  ]
+}

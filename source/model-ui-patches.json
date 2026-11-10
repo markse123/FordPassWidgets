@@ -1,0 +1,54 @@
+{
+  "patches": [
+    {
+      "label": "add distinct EV charge, range, plug and charging widget fields",
+      "before": "const METRICS = Object.freeze({ photo: 'Vehicle photo', fuel: 'Fuel & range', battery: '12V battery',",
+      "after": "const METRICS = Object.freeze({ photo: 'Vehicle photo', fuel: 'Fuel & range', battery: '12V battery',\n  evSoc: 'EV charge level', evRange: 'EV range', plugStatus: 'Plug status', chargeStatus: 'Charging status',"
+    },
+    {
+      "label": "accept lowercase EV widget parameters without aliasing 12V or fuel",
+      "before": "const METRIC_ALIASES = Object.freeze({ picture: 'photo', image: 'photo', truck: 'photo', range: 'fuel', '12v': 'battery',",
+      "after": "const METRIC_ALIASES = Object.freeze({ picture: 'photo', image: 'photo', truck: 'photo', range: 'fuel', '12v': 'battery',\n  ev: 'evSoc', evsoc: 'evSoc', charge: 'evSoc', evrange: 'evRange', plug: 'plugStatus', plugstatus: 'plugStatus', charging: 'chargeStatus', chargestatus: 'chargeStatus',"
+    },
+    {
+      "label": "offer EV and 12V lock-screen views independently",
+      "before": "const ACCESSORY_VIEWS = ['fuel', 'lock', 'tires', 'parked', 'status', 'ppoa', 'ppob', 'ppototal', 'ppocapacity'];",
+      "after": "const ACCESSORY_VIEWS = ['fuel', 'evSoc', 'evRange', 'plugStatus', 'chargeStatus', 'battery', 'lock', 'doors', 'temp', 'tires', 'parked', 'status', 'ppoa', 'ppob', 'ppototal', 'ppocapacity'];"
+    },
+    {
+      "label": "name the photo fallback as a generic vehicle icon",
+      "before": "'Use simple truck icon'",
+      "after": "'Use generic vehicle icon'"
+    },
+    {
+      "label": "use model-neutral photo availability text",
+      "before": "Ford did not return a photo for this truck.",
+      "after": "Ford did not return a photo for this vehicle."
+    },
+    {
+      "label": "gate user-facing Pro Power details by reviewed vehicle and raw capacity",
+      "before": "function ppoDetailsText(snapshot, request = null) {\n  const view = ppoView(snapshot), e = ppoEstimated(snapshot);",
+      "after": "function ppoDetailsText(snapshot, request = null, prefs = null) {\n  const view = ppoView(snapshot), e = prefs ? modelProPowerEstimate(snapshot, prefs) : ppoEstimated(snapshot);"
+    },
+    {
+      "label": "explain unverified model and rating mappings in Pro Power details",
+      "before": "    'Experimental estimates assume 1 raw unit = 1 W. Corroborated only on a 7.2 kW truck; other ratings and sentinel codes need validation.'",
+      "after": "    prefs ? modelProPowerInterpretation(snapshot, prefs) : 'Experimental estimates assume 1 raw unit = 1 W. Corroborated only on a 7.2 kW truck; other ratings and sentinel codes need validation.'"
+    },
+    {
+      "label": "make unknown Pro Power mapping explicit before the raw detail values",
+      "before": "  const lines = [\n    'Estimated A: ' + ppoPowerText(e.a)",
+      "after": "  const lines = [\n    prefs && e.mappingStatus === 'unverified' ? 'Mapping unverified · raw details' : '',\n    'Estimated A: ' + ppoPowerText(e.a)"
+    },
+    {
+      "label": "pass vehicle context into the user Pro Power detail view",
+      "before": "menu.message = ppoDetailsText(snapshot, request);",
+      "after": "menu.message = ppoDetailsText(snapshot, request, prefs);"
+    },
+    {
+      "label": "gate copied Pro Power estimates without changing the pure raw report helper",
+      "before": "    const report = ppoRedactedReport(snapshot, request);",
+      "after": "    const report = modelProPowerReport(snapshot, prefs, request);"
+    }
+  ]
+}

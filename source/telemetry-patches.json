@@ -1,0 +1,24 @@
+{
+  "patches": [
+    {
+      "label": "describe optional EV and dual-rear-wheel scalar readings",
+      "before": "  remoteStart: 'Remote start', ignition: 'Ignition' });",
+      "after": "  remoteStart: 'Remote start', ignition: 'Ignition', evSoc: 'EV charge %', evRange: 'EV range (mi)',\n  plugStatus: 'Charge plug', chargeStatus: 'Charging', chargeEndTime: 'Reported charge end time',\n  rli: 'Rear left inner PSI', rlo: 'Rear left outer PSI', rri: 'Rear right inner PSI', rro: 'Rear right outer PSI' });"
+    },
+    {
+      "label": "validate optional wrapped telemetry and both response VIN envelopes",
+      "before": "  const root = payload && (payload.vehicleStatus || payload);\n  if (!root || !root.metrics || typeof root.metrics !== 'object')",
+      "after": "  const root = vehicleTelemetryRoot(payload, vin);\n  if (!root || !root.metrics || typeof root.metrics !== 'object')"
+    },
+    {
+      "label": "normalize optional EV and wheel inventory without changing existing readings",
+      "before": "  if (!Object.keys(out).length) throw new Error(`${source}: no supported telemetry measurements.`);",
+      "after": "  vehicleTelemetryExtras(root, vin, source, fetchedAt, out);\n  if (!Object.keys(out).length) throw new Error(`${source}: no supported telemetry measurements.`);"
+    },
+    {
+      "label": "merge wheel inventory per component rather than replacing partial packets",
+      "before": "  return result;\n}\n\nfunction meters(a, b) {",
+      "after": "  const inventory = vehicleMergeWheelPressures(previous.wheelPressures, official.wheelPressures, mobile.wheelPressures);\n  if (inventory) result.wheelPressures = inventory;\n  return result;\n}\n\nfunction meters(a, b) {"
+    }
+  ]
+}

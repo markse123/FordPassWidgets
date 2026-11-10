@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.bak
+*.orig.js
+*.log
+.env
+.env.*
+ford_vehicle_cache.json
+ford_vehicle_cache.json.*
+app.lock
+vehicle_*.png
+captures/
+private/
+*.rtf
+*.apk
+*.apkm

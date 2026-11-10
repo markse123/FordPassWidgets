@@ -1,0 +1,29 @@
+{
+  "patches": [
+    {
+      "label": "make offline tire-alert checks explicit and independent of installed preferences",
+      "before": "  const probs = nightProblems({ lock: { value: 'Unlocked' }, rr: { value: 26 }, fl: { value: 35 }, fuel: { value: 9 } });",
+      "after": "  const probs = nightProblems({ lock: { value: 'Unlocked' }, rr: { value: 26 }, fl: { value: 35 }, fr: { value: 35 }, rl: { value: 35 }, fuel: { value: 9 } }, { tireConfiguration: { configured: true, layout: 'four', frontPsi: 30, rearPsi: 30 }, alerts: { enabled: { tires: true } } });"
+    },
+    {
+      "label": "keep all-good offline check independent of active per-vehicle alerts",
+      "before": "  assert(nightProblems({ lock: { value: 'Locked' }, fl: { value: 35 } }).length === 0, 'evening all good');",
+      "after": "  assert(nightProblems({ lock: { value: 'Locked' }, fl: { value: 35 } }, {}).length === 0, 'evening all good');"
+    },
+    {
+      "label": "verify original countdown semantics and conservative unknown-profile presentation separately",
+      "before": "  assert(rr.remote() && rr.remote().until > now(), 'unconfirmed stop does not hide running telemetry');",
+      "after": "  assert(MODEL_ORIGINAL_REMOTE.call(rr) && MODEL_ORIGINAL_REMOTE.call(rr).until > now(), 'unconfirmed stop does not hide running telemetry');\n  assert(rr.remote() === null, 'unknown-profile engine countdown is hidden');"
+    },
+    {
+      "label": "verify stopped telemetry against original countdown resolver",
+      "before": "  assert(stopped.remote() === null, 'newer stopped telemetry ends the start estimate');",
+      "after": "  assert(MODEL_ORIGINAL_REMOTE.call(stopped) === null, 'newer stopped telemetry ends the start estimate');"
+    },
+    {
+      "label": "check alert membership independent of model-specific tire ordering",
+      "before": "  assert(probs.length === 3 && probs[0] === 'Unlocked' && /RR 26 psi/.test(probs[1]), 'evening problems');",
+      "after": "  assert(probs.length === 3 && probs[0] === 'Unlocked' && probs.some(text => /RR 26 psi/.test(text)), 'evening problems');"
+    }
+  ]
+}

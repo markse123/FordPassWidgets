@@ -1,0 +1,124 @@
+{
+  "patches": [
+    {
+      "label": "bind vehicle before constructing app storage",
+      "before": "  constructor() { this.store = new LocalStore(); this.auth = new FordAuthManager(this.store); }",
+      "after": "  constructor() { this.store = null; this.auth = null; }"
+    },
+    {
+      "label": "opted-in passive Pro Power fetch only",
+      "before": "      if (secretGet('token.mobile')) {\n        try {\n          const power = await api.readProPower();",
+      "after": "      if (secretGet('token.mobile') && appProPowerEnabled(prefs, this.store)) {\n        try {\n          const power = await api.readProPower();"
+    },
+    {
+      "label": "command confirmation identifies fixed vehicle",
+      "before": "const a = new Alert(); a.title = `${action === 'refresh' ? 'Wake vehicle' : action.toUpperCase()} \u00b7 ${prefs.name}`;",
+      "after": "const a = new Alert(); a.title = `${action === 'refresh' ? 'Wake vehicle' : action.toUpperCase()} \u00b7 ${appVehicleLabel(prefs)}`;"
+    },
+    {
+      "label": "photo selection revalidates vehicle before mutations",
+      "before": "    const choice = await a.presentSheet();\n    if (choice < 0) return;\n    if (choice <= 1)",
+      "after": "    const choice = await a.presentSheet();\n    appAssertProfile(prefs, this.store);\n    if (choice < 0) return;\n    if (choice <= 1)"
+    },
+    {
+      "label": "photo angle revalidates vehicle",
+      "before": "        const pick = await v.presentSheet();\n        if (pick < 0) return;",
+      "after": "        const pick = await v.presentSheet();\n        appAssertProfile(prefs, this.store);\n        if (pick < 0) return;"
+    },
+    {
+      "label": "photo library revalidates before file write",
+      "before": "      try { img = await Photos.fromLibrary(); } catch (_) { return; }\n      this.store.writeImage",
+      "after": "      try { img = await Photos.fromLibrary(); } catch (_) { return; }\n      appAssertProfile(prefs, this.store);\n      this.store.writeImage"
+    },
+    {
+      "label": "photo preview revalidates after download",
+      "before": "    await new WidgetRenderer(prefs, this.store.read()).build('medium').presentMedium();",
+      "after": "    appAssertProfile(prefs, this.store);\n    await new WidgetRenderer(prefs, this.store.read()).build('medium').presentMedium();"
+    },
+    {
+      "label": "parked dialog revalidates profile",
+      "before": "    const i = await a.presentAlert();\n    if (i === 0) Safari.open(pl.url);",
+      "after": "    const i = await a.presentAlert();\n    appAssertProfile(prefs, this.store);\n    if (i === 0) Safari.open(pl.url);"
+    },
+    {
+      "label": "PPO confirmation identifies fixed vehicle",
+      "before": "const alert = new Alert(); alert.title = 'Request Pro Power status once?';",
+      "after": "const alert = new Alert(); alert.title = 'Request Pro Power status for ' + appVehicleLabel(prefs) + ' once?';"
+    },
+    {
+      "label": "PPO details revalidate each menu iteration",
+      "before": "    requireApp();\n    const cache = this.store.read(), snapshot = ppoSnapshotFor(cache, prefs);",
+      "after": "    if (!appProPowerEnabled(prefs, this.store)) throw new Error('Pro Power monitoring is not enabled for this vehicle.');\n    const cache = this.store.read(), snapshot = ppoSnapshotFor(cache, prefs);"
+    },
+    {
+      "label": "PPO details revalidate after menu",
+      "before": "    const choice = await menu.presentSheet();\n    requireApp();\n    if (choice < 0) return;",
+      "after": "    const choice = await menu.presentSheet();\n    if (!appProPowerEnabled(prefs, this.store)) throw new Error('Pro Power monitoring is not enabled for this vehicle.');\n    if (choice < 0) return;"
+    },
+    {
+      "label": "full refresh validates owner permission",
+      "before": "  if (prefs && prefs.compatibility && prefs.compatibility.commands && prefs.compatibility.commands.refresh === false)\n    throw new Error('This command is disabled in Vehicle features.');",
+      "after": "  if (!vehicleCommandAllowed(appAssertProfile(prefs, this.store), 'refresh'))\n    throw new Error('This vehicle refresh is not enabled.');"
+    },
+    {
+      "label": "full refresh records opted-out stages honestly",
+      "before": "    proPowerRequest: ['device_succeeded', 'device_failed', 'accepted_unconfirmed', 'delivery_uncertain', 'unconfirmed', 'unconfirmed_or_cooling_down', 'requires_fordpass'],",
+      "after": "    proPowerRequest: ['device_succeeded', 'device_failed', 'accepted_unconfirmed', 'delivery_uncertain', 'unconfirmed', 'unconfirmed_or_cooling_down', 'requires_fordpass', 'not_enabled'],"
+    },
+    {
+      "label": "full refresh opted-out read stage",
+      "before": "    proPowerRead: ['checked', 'cached_or_unavailable', 'failed', 'already_checked_by_request', 'requires_fordpass'],",
+      "after": "    proPowerRead: ['checked', 'cached_or_unavailable', 'failed', 'already_checked_by_request', 'requires_fordpass', 'not_enabled'],"
+    },
+    {
+      "label": "full refresh identity validation",
+      "before": "    requireApp(); this.store.assertLease();\n    const configured = secretGet('vehicle'), cache = this.store.read();",
+      "after": "    appAssertProfile(prefs, this.store);\n    const configured = secretGet('vehicle'), cache = this.store.read();"
+    },
+    {
+      "label": "full refresh vehicle-specific confirmation",
+      "before": "  const confirmation = new Alert(); confirmation.title = 'Refresh all widget data?';\n  confirmation.message = 'Request vehicle and Pro Power status, then read Ford\\'s latest available data. This may wake connected electronics; it does not start or stop the engine or switch outlets. Keep Scriptable open while it finishes. A full refresh can take around a minute, and existing cooldowns apply.';",
+      "after": "  const confirmation = new Alert(); confirmation.title = 'Refresh ' + appVehicleLabel(prefs) + '?';\n  confirmation.message = appRefreshPrompt(prefs, this.store);"
+    },
+    {
+      "label": "full refresh spacing only before opted-in PPO",
+      "before": "      if (generalDispatched) {",
+      "after": "      if (generalDispatched && appProPowerEnabled(prefs, this.store)) {"
+    },
+    {
+      "label": "full refresh only requests opted-in PPO",
+      "before": "      try {\n        const result = await client.requestProPowerStatus(true);\n        steps.proPowerRequest = result && ['device_succeeded', 'device_failed', 'accepted_unconfirmed', 'delivery_uncertain'].includes(result.outcome) ? result.outcome : 'unconfirmed';\n      } catch (_) { steps.proPowerRequest = 'unconfirmed_or_cooling_down'; }\n    } else { steps.generalStatus = 'requires_fordpass'; steps.proPowerRequest = 'requires_fordpass'; }",
+      "after": "      if (appProPowerEnabled(prefs, this.store)) {\n        try {\n          const result = await client.requestProPowerStatus(true);\n          steps.proPowerRequest = result && ['device_succeeded', 'device_failed', 'accepted_unconfirmed', 'delivery_uncertain'].includes(result.outcome) ? result.outcome : 'unconfirmed';\n        } catch (_) { steps.proPowerRequest = 'unconfirmed_or_cooling_down'; }\n      } else steps.proPowerRequest = 'not_enabled';\n    } else { steps.generalStatus = 'requires_fordpass'; steps.proPowerRequest = appProPowerEnabled(prefs, this.store) ? 'requires_fordpass' : 'not_enabled'; }"
+    },
+    {
+      "label": "full refresh only reads opted-in PPO",
+      "before": "    if (mobile && steps.proPowerRequest !== 'device_succeeded') {",
+      "after": "    if (appProPowerEnabled(prefs, this.store) && mobile && steps.proPowerRequest !== 'device_succeeded') {"
+    },
+    {
+      "label": "full refresh skipped PPO read outcome",
+      "before": "    } else steps.proPowerRead = mobile ? 'already_checked_by_request' : 'requires_fordpass';",
+      "after": "    } else steps.proPowerRead = !appProPowerEnabled(prefs, this.store) ? 'not_enabled' : mobile ? 'already_checked_by_request' : 'requires_fordpass';"
+    },
+    {
+      "label": "full refresh completion omits disabled PPO",
+      "before": "  lines.push(proPowerText[steps.proPowerRequest]);",
+      "after": "  if (steps.proPowerRequest !== 'not_enabled') lines.push(proPowerText[steps.proPowerRequest]);"
+    },
+    {
+      "label": "full refresh measurement-time wording follows opt-in",
+      "before": "  lines.push('Readings keep Ford\\'s measurement times. Pro Power sample time remains unverified.');",
+      "after": "  lines.push('Readings keep Ford\\'s measurement times.' + (appProPowerEnabled(prefs, this.store) ? ' Pro Power sample time remains unverified.' : ''));"
+    },
+    {
+      "label": "troubleshooting only exposes opted-in PPO tools",
+      "before": "    ['Vehicle data report', 'Pro Power raw signals', 'Copy redacted Pro Power report'].forEach(label => menu.addAction(label));",
+      "after": "    ['Vehicle data report', ...(appProPowerEnabled(prefs, this.store) ? ['Pro Power raw signals', 'Copy redacted Pro Power report'] : [])].forEach(label => menu.addAction(label));"
+    },
+    {
+      "label": "troubleshooting rechecks PPO consent after dialog",
+      "before": "    if (choice === 0) { await this.vehicleStatusDiagnostic(prefs); continue; }\n    const snapshot",
+      "after": "    if (choice === 0) { await this.vehicleStatusDiagnostic(prefs); continue; }\n    if (!appProPowerEnabled(prefs, this.store)) throw new Error('Pro Power monitoring is not enabled for this vehicle.');\n    const snapshot"
+    }
+  ]
+}

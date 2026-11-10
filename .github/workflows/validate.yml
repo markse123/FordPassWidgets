@@ -1,0 +1,38 @@
+name: Validate widget and release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify deterministic build
+        run: |
+          python3 source/build.py
+          git diff --exit-code -- "FordPassWidgets.js" source/build-manifest.json
+          node --input-type=module --check < "FordPassWidgets.js"
+      - name: Run offline regressions
+        run: |
+          node --test tests/*.test.cjs source/widget.test.cjs
+          node source/core.test.cjs
+          node source/ui.test.cjs
+          node source/parser.test.cjs
+      - name: Verify release version and immutable installer pin
+        env:
+          BASE_COMMIT: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -n "$BASE_COMMIT" && "$BASE_COMMIT" != "0000000000000000000000000000000000000000" ]]; then
+            python3 source/release.py --check --base "$BASE_COMMIT"
+          else
+            python3 source/release.py --check
+          fi

@@ -1,0 +1,89 @@
+{
+  "patches": [
+    {
+      "label": "independent account/profile secret routing",
+      "before": "const secretKey = name => `FordWidget.ProPowerPreview.v1.${name}`;\nfunction secretGet(name) {\n  const key = secretKey(name);\n  return Keychain.contains(key) ? JSON.parse(Keychain.get(key)) : null;\n}\nfunction secretSet(name, value) { Keychain.set(secretKey(name), JSON.stringify(value)); }\nfunction secretRemove(name) { if (Keychain.contains(secretKey(name))) Keychain.remove(secretKey(name)); }",
+      "after": "const secretKey = name => profileSecretKey(name);\nfunction secretGet(name) { return profileSecretGet(name); }\nfunction secretSet(name, value) { return profileSecretSet(name, value); }\nfunction secretRemove(name) { return profileSecretRemove(name); }"
+    },
+    {
+      "label": "standalone local folder",
+      "before": "this.dir = this.fm.joinPath(this.fm.documentsDirectory(), 'FordWidget Pro Power Preview');",
+      "after": "this.dir = this.fm.joinPath(this.fm.documentsDirectory(), 'FordPassWidgets');"
+    },
+    {
+      "label": "capture store profile before any reads",
+      "before": "    this.lockPath = this.fm.joinPath(this.dir, 'app.lock');\n    this.owner = null;\n  }",
+      "after": "    this.lockPath = this.fm.joinPath(this.dir, 'app.lock');\n    this.owner = null;\n    configureProfileStore(this);\n  }"
+    },
+    {
+      "label": "snapshot JSON request binding before transport",
+      "before": "    this.store.assertLease(); this.gate(name);\n    const r = new Request(url); r.method = method;",
+      "after": "    this.store.assertLease(); this.gate(name);\n    const requestBinding = profileCopy(this.store.profileBinding);\n    assertProfileRequestScope(this.store, name, url, method);\n    const r = new Request(url); r.method = method;"
+    },
+    {
+      "label": "validate JSON response binding before mutations",
+      "before": "      const raw = await r.loadString();\n      this.store.assertLease();",
+      "after": "      const raw = await r.loadString();\n      assertVehicleRequestBinding(this.store, requestBinding);\n      this.store.assertLease();"
+    },
+    {
+      "label": "reject displaced JSON request before backoff",
+      "before": "    } catch (e) {\n      this.backoff(name, status, r, headers);\n      // Never surface a raw server body",
+      "after": "    } catch (e) {\n      assertVehicleRequestBinding(this.store, requestBinding);\n      this.backoff(name, status, r, headers);\n      // Never surface a raw server body"
+    },
+    {
+      "label": "snapshot image request binding before transport",
+      "before": "    this.store.assertLease(); this.gate(name);\n    const r = new Request(url); r.method = 'GET';",
+      "after": "    this.store.assertLease(); this.gate(name);\n    const requestBinding = profileCopy(this.store.profileBinding);\n    assertProfileRequestScope(this.store, name, url, 'GET');\n    const r = new Request(url); r.method = 'GET';"
+    },
+    {
+      "label": "validate image response binding before mutations",
+      "before": "      const data = await r.load();\n      this.store.assertLease();",
+      "after": "      const data = await r.load();\n      assertVehicleRequestBinding(this.store, requestBinding);\n      this.store.assertLease();"
+    },
+    {
+      "label": "reject displaced image request before backoff",
+      "before": "    } catch (e) {\n      this.backoff(name, status, r, headers);\n      throw e instanceof APIError",
+      "after": "    } catch (e) {\n      assertVehicleRequestBinding(this.store, requestBinding);\n      this.backoff(name, status, r, headers);\n      throw e instanceof APIError"
+    },
+    {
+      "label": "snapshot token refresh context",
+      "before": "  async token(name) {\n    this.store.assertLease();",
+      "after": "  async token(name) {\n    this.store.assertLease();\n    const tokenBinding = profileCopy(this.store.profileBinding);"
+    },
+    {
+      "label": "validate token refresh context before saving",
+      "before": "    return this.saveToken(name, data, saved);",
+      "after": "    assertVehicleRequestBinding(this.store, tokenBinding);\n    return this.saveToken(name, data, saved);"
+    },
+    {
+      "label": "profile-safe settings save",
+      "before": "  const current = secretGet('vehicle');\n  if (!current || !prefs || current.vin !== prefs.vin)\n    throw new Error('The configured vehicle changed. Run the script again.');\n  secretSet('vehicle', prefs);",
+      "after": "  if (!vehicleBindingCurrent(prefs, store))\n    throw new Error('The selected vehicle or account session changed. Run the script again.');\n  saveVehicleProfile(prefs, store);"
+    },
+    {
+      "label": "capture FordPass login context before UI",
+      "before": "  async connectMobile() {\n    for (const name of ['auth.b2c', 'auth.mobile', 'auth.autonomic'])",
+      "after": "  async connectMobile() {\n    this.store.assertLease(); const loginBinding = profileCopy(this.store.profileBinding);\n    for (const name of ['auth.b2c', 'auth.mobile', 'auth.autonomic'])"
+    },
+    {
+      "label": "validate FordPass context after credentials UI",
+      "before": "    if (!values) return;\n    const credentials = { username: values[0], password: values[1] };",
+      "after": "    if (!values) return;\n    assertVehicleRequestBinding(this.store, loginBinding); this.store.assertLease();\n    const credentials = { username: values[0], password: values[1] };"
+    },
+    {
+      "label": "capture FordConnect login context before UI",
+      "before": "  async connectOfficial() {\n    const old = secretGet('official') || {};",
+      "after": "  async connectOfficial() {\n    this.store.assertLease(); const officialBinding = profileCopy(this.store.profileBinding);\n    const old = secretGet('official') || {};"
+    },
+    {
+      "label": "validate FordConnect context after credentials UI",
+      "before": "    if (!values) return;\n    const [clientId, clientSecret, redirect] = values;",
+      "after": "    if (!values) return;\n    assertVehicleRequestBinding(this.store, officialBinding); this.store.assertLease();\n    const [clientId, clientSecret, redirect] = values;"
+    },
+    {
+      "label": "validate vehicle client identity before all data operations",
+      "before": "  constructor(auth, store, prefs) { this.auth = auth; this.store = store; this.prefs = prefs; }",
+      "after": "  constructor(auth, store, prefs) { assertVehicleClientBinding(auth, store, prefs); this.auth = auth; this.store = store; this.prefs = prefs; }"
+    }
+  ]
+}
