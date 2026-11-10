@@ -3,9 +3,9 @@
 // FordPassWidgets installer. Name this script "Install FordPassWidgets".
 // Review: https://github.com/markse123/FordPassWidgets
 // Downloads one reviewed version; it never runs the widget or accesses Ford sign-in.
-const INSTALL_VERSION = '0.0.0';
-const INSTALL_SOURCE = 'https://raw.githubusercontent.com/markse123/FordPassWidgets/0000000000000000000000000000000000000000/FordPassWidgets.js';
-const INSTALL_SHA256 = '0000000000000000000000000000000000000000000000000000000000000000';
+const INSTALL_VERSION = '0.1.0';
+const INSTALL_SOURCE = 'https://raw.githubusercontent.com/markse123/FordPassWidgets/89028890b6bd774af86ac4b1364f80d41799654e/FordPassWidgets.js';
+const INSTALL_SHA256 = '7e9648a30102fbec0167559306c12d1439a8830a816f333dca9951f2107320a9';
 class InstallerError extends Error {}
 
 // SHA-256 over bytes, using only JavaScript and Scriptable's documented Data API.
