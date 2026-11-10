@@ -4,6 +4,8 @@ Your Ford vehicles, at a glance. **FordPassWidgets** is an independent, open-sou
 
 **v0.1.0** · [Easy installation](https://markse123.github.io/FordPassWidgets/) · [Script source](FordPassWidgets.js) · [Setup and usage](docs/USAGE.md) · [Model support](docs/MODEL-SUPPORT.md) · [Android feature research](docs/ANDROID-FEATURES.md)
 
+**Runs locally. No project data collection.** The widget runs in Scriptable on your device. The project has no developer-operated backend, analytics or tracking, and does not automatically upload your account details, vehicle data or reports to its maintainers. Settings, tokens and cached readings are stored locally by Scriptable. The app still contacts Ford for sign-in and vehicle data, plus the documented optional location/weather services. [Privacy details](docs/USAGE.md#privacy-and-removal).
+
 This is a new project built on [rushilpunu/FordWidget](https://github.com/rushilpunu/FordWidget) and [markse123/FordWidget](https://github.com/markse123/FordWidget). Thank you to the original authors, API-reference projects and community testers; see [CREDITS](CREDITS.md) for their roles and project links. It keeps their widget foundation and expands the design to a garage of vehicles, EV status and vehicle-specific settings. **Designed for broader Ford coverage does not mean verified on every model.** See the [support matrix and testing limits](docs/MODEL-SUPPORT.md).
 
 ## What it includes
@@ -32,7 +34,7 @@ FordPassWidgets has its **own sign-in, settings and vehicle storage**. It does n
 
 These are **last-reported readings**, not a live vehicle connection. A fresh cloud response or completed status request does not prove every measurement changed. Pro Power's status-result age is separate from its unverified sample time. Refresh opens Scriptable for confirmation, respects cooldowns, and can finish before iOS redraws the Home Screen widget. [How refresh works](docs/USAGE.md#refresh-and-measurement-times).
 
-This unofficial client depends on private Ford APIs and authorized vehicle services. Passwords are not saved. Tokens use Scriptable's shared Keychain, accessible to other installed scripts, so install only scripts you trust. Location, local cache and optional weather behavior are described in the [privacy notes](docs/USAGE.md#privacy-and-removal). The install website has no Ford login form, vehicle telemetry or analytics.
+Security measures include an installer pinned to a reviewed release with SHA-256 verification, Keychain token storage, and opt-in vehicle controls with confirmations. This unofficial client depends on private Ford APIs and authorized vehicle services. Passwords are not saved. Tokens use Scriptable's shared Keychain, accessible to other installed scripts, so install only scripts you trust. Location, local cache and optional weather behavior are described in the [privacy notes](docs/USAGE.md#privacy-and-removal). The install website has no Ford login form, vehicle telemetry or analytics.
 
 ## Contributions welcome
 
