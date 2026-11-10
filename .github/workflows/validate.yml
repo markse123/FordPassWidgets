@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -11,11 +12,17 @@ permissions:
 jobs:
   offline-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify version tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 source/check-tag.py "$RELEASE_TAG"
       - name: Verify deterministic build
         run: |
           python3 source/build.py
@@ -31,7 +38,7 @@ jobs:
         env:
           BASE_COMMIT: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ -n "$BASE_COMMIT" && "$BASE_COMMIT" != "0000000000000000000000000000000000000000" ]]; then
+          if [[ "$GITHUB_REF" != refs/tags/* && -n "$BASE_COMMIT" && "$BASE_COMMIT" != "0000000000000000000000000000000000000000" ]]; then
             python3 source/release.py --check --base "$BASE_COMMIT"
           else
             python3 source/release.py --check
