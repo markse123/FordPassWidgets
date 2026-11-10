@@ -133,9 +133,15 @@ Review reports before sharing. They omit VIN, location, tokens, request identifi
 
 ## Privacy and removal
 
+**Runs locally. No project data collection.** FordPassWidgets runs in Scriptable on your device, without a developer-operated backend, analytics or tracking. It does not automatically send your account details, vehicle data, usage or reports to the project or its maintainers. Reports are previewed/copied locally; sharing one is your choice.
+
+Local execution still uses the network: sign-in and vehicle requests go directly to Ford and its authentication/vehicle-service providers. The installer downloads public code from GitHub, and the install page is hosted on GitHub Pages. Those services handle their own network requests; the project does not operate a data-collection service.
+
 Passwords are not saved. Ford tokens and username use Scriptable's shared Keychain, which other installed scripts can access. FordPassWidgets uses separate account and vehicle storage from its predecessors; separation is not an access barrier against an untrusted Scriptable script.
 
-Local telemetry can include parked coordinates while enabled. Turning **Parked location** off removes cached position/place output and disables the location-based weather fallback for that vehicle; a widget Parameter cannot bypass the opt-out. The inherited remote-start weather fallback may send an approximately 1 km-rounded position to Open-Meteo when the vehicle temperature is old. Location labels use the device's reverse geocoder. The install website has no Ford sign-in form or analytics.
+Vehicle profiles/settings, telemetry caches and photos are stored by Scriptable on your device. Some vehicle details also appear in Scriptable's local console logs and notifications. Security measures include Keychain token storage, confirmed opt-in controls and an installer that verifies a pinned release's SHA-256 before saving it. Device/platform backup settings remain your choice.
+
+Local telemetry can include parked coordinates while enabled. Turning **Parked location** off removes cached position/place output and disables the location-based weather fallback for that vehicle; a widget Parameter cannot bypass the opt-out. An explicitly saved Home location is separate and remains in that vehicle's settings; use **Parked location → Clear Home** before turning the feature off if you want to remove it too. The inherited remote-start weather fallback may send an approximately 1 km-rounded position to Open-Meteo when the vehicle temperature is old. Location labels use the device's reverse geocoder. The install website has no Ford sign-in form or analytics.
 
 Use **Sign out** before uninstalling to remove the saved account session credentials and disconnect all vehicle profiles. Widgets cannot show saved vehicle data again until the vehicles are authorized after sign-in. Sign-out retains profile settings and local telemetry/photos. Delete the Scriptable widget/installer scripts and Home/Lock Screen widgets; remove the **FordPassWidgets** folder from Scriptable's local documents if you also want to remove local telemetry/photos. Saved profile settings in Keychain are separate from that folder. Do not delete another project's storage or copy tokens/caches between projects.
 
