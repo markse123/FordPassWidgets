@@ -97,6 +97,49 @@ function modelReadableEnum(value) {
   return typeof value === 'string' && value.length ? value.replace(/_/g, ' ') : 'Not reported';
 }
 
+// Coverage comes from Ford's retained component evidence, never a cached flag,
+// a model name or a guessed number of doors. Raw values remain merge/alert enums.
+function componentCoverageEvidence(kind, field) {
+  if (!['lock', 'doors'].includes(kind) || !field || typeof field !== 'object' || Array.isArray(field)) return null;
+  const own = (value, key) => value && Object.prototype.hasOwnProperty.call(value, key);
+  const packet = own(field, 'componentStatus') && field.componentStatus;
+  if (!packet || Array.isArray(packet) || !['version', 'readings', 'doorList', 'hood', 'truncated', 'legacy'].every(key => own(packet, key)) ||
+      packet.version !== 1 || packet.truncated !== false || packet.legacy !== null ||
+      typeof packet.doorList !== 'boolean' || typeof packet.hood !== 'boolean' ||
+      !Array.isArray(packet.readings) || !packet.readings.length || packet.readings.length > 64) return null;
+  if (kind === 'doors' && (packet.doorList !== true || packet.hood !== true)) return null;
+  const allowed = kind === 'lock' ? ['LOCKED', 'DOUBLE_LOCKED', 'UNLOCKED', 'UNKNOWN', 'IGNORED'] : ['CLOSED', 'OPEN', 'AJAR', 'UNKNOWN'];
+  const ids = new Set();
+  for (const reading of packet.readings) {
+    if (!reading || Array.isArray(reading) || !['id', 'value', 'at', 'source', 'latch', 'unresolvedUnsafe'].every(key => own(reading, key)) ||
+        typeof reading.id !== 'string' || !/^[A-Z_]{1,40}(?:\|(?:DRIVER|PASSENGER))?$/.test(reading.id) ||
+        ids.has(reading.id) || !allowed.includes(reading.value) || !['FordPass', 'FordConnect'].includes(reading.source) ||
+        ![null, 'MECHANICAL', 'ELECTRONIC'].includes(reading.latch) || typeof reading.unresolvedUnsafe !== 'boolean' ||
+        kind === 'lock' && (reading.value === 'IGNORED') !== (reading.latch === 'MECHANICAL') ||
+        reading.at !== null && (typeof reading.at !== 'number' || componentTime(reading.at) !== reading.at)) return null;
+    ids.add(reading.id);
+  }
+  const aggregate = packet.readings.find(reading => reading.id === 'ALL_DOORS');
+  if (!aggregate || aggregate.value === 'IGNORED' || kind === 'doors' && !ids.has('HOOD')) return null;
+  const derived = componentResult(kind, packet.readings);
+  return derived.value === field.value ? derived : null;
+}
+function componentStatusText(field, kind, fallback = 'Unknown') {
+  const allowed = kind === 'lock' ? ['Locked', 'Unlocked', 'Unknown'] : ['Closed', 'Ajar', 'Unknown'];
+  const value = field && allowed.includes(field.value) ? field.value : null;
+  if (!value) return fallback;
+  return ['Locked', 'Closed'].includes(value) && !componentCoverageEvidence(kind, field) ? value + ' (partial)' : value;
+}
+function componentLockIcon(field) {
+  return field && field.value === 'Unlocked' ? 'lock.open.fill' :
+    field && field.value === 'Locked' && componentCoverageEvidence('lock', field) ? 'lock.fill' : 'questionmark';
+}
+function componentEveningConfirmed(fields, evening) {
+  const at = evening && evening.at;
+  return !!(evening && evening.securityFresh === true && typeof at === 'number' && Number.isFinite(at) &&
+    at > 0 && at <= now() && nightSecurityFresh(fields, at));
+}
+
 const MODEL_ORIGINAL_ALERT_SETTINGS = alertSettings;
 alertSettings = function(prefs) {
   const options = MODEL_ORIGINAL_ALERT_SETTINGS(prefs);
@@ -178,8 +221,8 @@ function modelStatusEntries(renderer) {
     value: renderer.value('battery') === null ? modelReadableEnum(renderer.value('batteryHealth')) : renderer.number('battery', '%') });
   if (renderer.on('oil')) entries.push({ key: 'oil', label: 'Oil', value: renderer.number('oil', '%') });
   if (renderer.on('odometer')) entries.push({ key: 'odometer', label: 'Odometer', value: displayUnitDistance(renderer.value('odometer'), renderer.opts.units) });
-  if (renderer.on('lock')) entries.push({ key: 'lock', label: 'Locks', value: renderer.value('lock') || 'Not reported' });
-  if (renderer.on('doors')) entries.push({ key: 'doors', label: 'Doors', value: renderer.value('doors') || 'Not reported' });
+  if (renderer.on('lock')) entries.push({ key: 'lock', label: 'Locks', value: componentStatusText(renderer.fields.lock, 'lock', 'Not reported') });
+  if (renderer.on('doors')) entries.push({ key: 'doors', label: 'Doors', value: componentStatusText(renderer.fields.doors, 'doors', 'Not reported') });
   if (renderer.on('temp')) entries.push({ key: 'outsideTemp', label: 'Outside', value: formatDisplayTemperature(renderer.value('outsideTemp'), renderer.opts.units) });
   if (renderer.on('plugStatus')) entries.push({ key: 'plugStatus', label: 'Plug', value: modelReadableEnum(renderer.value('plugStatus')) });
   if (renderer.on('chargeStatus')) entries.push({ key: 'chargeStatus', label: 'Charging', value: modelReadableEnum(renderer.value('chargeStatus')) });
@@ -539,6 +582,7 @@ AppController.prototype.details = async function(prefs) {
   const lines = keys.map(key => {
     const field = fields[key], raw = field && field.value; let value = raw;
     if (raw === null || raw === undefined) value = 'Not reported';
+    else if (['lock', 'doors'].includes(key)) value = componentStatusText(field, key, 'Not reported');
     else if (['range', 'evRange', 'odometer'].includes(key)) value = displayUnitDistance(raw, options.units, 1);
     else if (modelTireKeys(prefs).includes(key)) value = formatDisplayPressure(raw, options.unit, true) + ' ' + displayUnitPressureLabel(options.unit);
     else if (key === 'outsideTemp') value = formatDisplayTemperature(raw, options.units);
@@ -556,7 +600,7 @@ AppController.prototype.details = async function(prefs) {
   lines.push('Photo: ' + (prefs.imageMode === 'custom' ? 'From your Photos' : prefs.imageMode === 'off' ? 'Generic vehicle icon' : cache.image && cache.image.source ? cache.image.source + ' · ' + modelReadingAge(cache.image) : 'Not downloaded'));
   const evening = cache.night;
   lines.push('Evening check: ' + (!nightSettings(prefs).enabled ? 'Off' : evening && evening.done ?
-    (evening.problems && evening.problems.length ? evening.problems.join(', ') : evening.securityFresh === true ? 'Locked and closed; no enabled alerts' : 'Current security status unconfirmed') + ' · ' + modelReadingAge(evening) : 'Not run yet'));
+    (evening.problems && evening.problems.length ? evening.problems.join(', ') : componentEveningConfirmed(fields, evening) ? 'Locked and closed; no enabled alerts' : 'Current security status unconfirmed') + ' · ' + modelReadingAge(evening) : 'Not run yet'));
   if (cache.lastCommand) lines.push('Last request: ' + cache.lastCommand.action + '\n' + cache.lastCommand.outcome + ' · ' + modelReadingAge(cache.lastCommand));
   await message(modelIdentity(prefs), lines.join('\n\n'));
 };

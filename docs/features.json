@@ -8,7 +8,7 @@
     },
     {
       "id": "vehicle-readings",
-      "summary": "Vehicle readings where reported: fuel/range, EV charge/range, plug and charging status, 12V battery, tires, oil, locks, doors/hood, odometer, outside temperature and parked location. Missing readings remain unknown.",
+      "summary": "Vehicle readings where reported: fuel/range, EV charge/range, plug and charging status, 12V battery, tires, oil, locks, doors/hood, odometer, outside temperature and parked location. Missing readings remain unknown; healthy incomplete door/lock reports are labeled partial.",
       "documentation": "docs/USAGE.md#features-controls-and-alerts"
     },
     {
@@ -23,7 +23,7 @@
     },
     {
       "id": "vehicle-controls",
-      "summary": "Vehicle-specific feature and control choices. Lock/unlock and engine start/stop retain confirmations and cooldowns; commands start disabled and must be enabled for that vehicle. EV climate/conditioning and charging controls are not implemented.",
+      "summary": "Vehicle-specific feature and control choices. Lock/unlock and engine start/stop retain confirmations and cooldowns; commands start disabled and must be enabled for that vehicle. Start/Stop also require owner verification of engine control. EV climate/conditioning and charging controls are not implemented.",
       "documentation": "docs/MODEL-SUPPORT.md#feature-boundaries"
     },
     {

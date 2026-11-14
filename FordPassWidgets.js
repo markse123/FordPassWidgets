@@ -1,7 +1,7 @@
 // Variables used by Scriptable.
 // icon-color: blue; icon-glyph: car;
 /*
-FordPassWidgets 0.1.0
+FordPassWidgets 0.1.1
 An independent FordPass vehicle widget for Scriptable.
 Derived from rushilpunu/FordWidget and markse123/FordWidget.
 Contributor credits: https://github.com/markse123/FordPassWidgets/blob/main/CREDITS.md
@@ -878,7 +878,7 @@ function normalize(payload, vin, source, fetchedAt) {
   const m = root.metrics, out = {};
   const put = (key, value, entry) => {
     if (value === null || value === undefined) return;
-    out[key] = { value, at: timestamp(entry && entry.updateTime) || timestamp(root.updateTime) || null, source, fetchedAt };
+    out[key] = { value, at: componentTime(entry && entry.updateTime), source, fetchedAt };
   };
   for (const [field, key, max] of [['fuel', 'fuelLevel', 100], ['oil', 'oilLifeRemaining', 100], ['battery', 'batteryStateOfCharge', 100]]) {
     const e = m[key]; put(field, field === 'fuel' ? fordFuelPercent(e && e.value) : bounded(e && e.value, max), e);
@@ -893,13 +893,7 @@ function normalize(payload, vin, source, fetchedAt) {
   const health = m.batteryLoadStatus;
   if (health && (!health.vehicleBattery || health.vehicleBattery === 'PRIMARY_BATTERY') && typeof health.value === 'string')
     put('batteryHealth', health.value, health);
-  const positions = { FRONT_LEFT: 'fl', FRONT_RIGHT: 'fr', REAR_LEFT: 'rl', REAR_RIGHT: 'rr', LEFT_FRONT: 'fl', RIGHT_FRONT: 'fr', LEFT_REAR: 'rl', RIGHT_REAR: 'rr' };
-  for (const t of Array.isArray(m.tirePressure) ? m.tirePressure : []) {
-    const field = positions[t.vehicleWheel], v = bounded(t.value, 2000);
-    const unit = String(t.unit || t.unitSymbol || 'kPa').toLowerCase();
-    const factor = unit === 'kpa' ? 1 / 6.894757293 : unit === 'bar' ? 14.5037738 : unit === 'psi' ? 1 : null;
-    if (field) put(field, v !== null && factor !== null ? bounded(v * factor, 150) : null, t);
-  }
+  // All wheel fields are selected together by vehicleTelemetryExtras below.
   if (Array.isArray(m.doorLockStatus) && m.doorLockStatus.length)
     out.lock = componentPacket('lock', m.doorLockStatus.map(entry => ({ entry })), source, fetchedAt);
   const doorList = Array.isArray(m.doorStatus), doors = (doorList ? m.doorStatus.map(entry => ({ entry })) : [])
@@ -914,9 +908,9 @@ function normalize(payload, vin, source, fetchedAt) {
   }
   // Ford's countdown is seconds remaining as of the metric's own updateTime.
   const rs = m.remoteStartCountdownTimer, rsv = rs ? finite(rs.value) : null;
-  if (rsv !== null) {
-    const from = timestamp(rs.updateTime) || timestamp(root.updateTime) || fetchedAt;
-    put('remoteStart', { until: rsv > 0 ? from + rsv * 1000 : 0 }, rs);
+  const countdownAt = componentTime(rs && rs.updateTime);
+  if (rsv !== null && countdownAt !== null) {
+    put('remoteStart', { until: rsv > 0 ? countdownAt + rsv * 1000 : 0 }, rs);
   }
   const ign = m.ignitionStatus;
   if (ign && typeof ign.value === 'string') put('ignition', ign.value.toUpperCase(), ign);
@@ -936,8 +930,11 @@ function mergeFields(previous, official, mobile) {
     const old = result[key];
     if (!old || !old.at || (candidate.at && candidate.at >= old.at)) result[key] = candidate;
   }
-  const inventory = vehicleMergeWheelPressures(previous.wheelPressures, official.wheelPressures, mobile.wheelPressures);
-  if (inventory) result.wheelPressures = inventory;
+  const inventory = vehicleMergeWheelPressures(previous.wheelPressures, official.wheelPressures, mobile.wheelPressures, result);
+  if (inventory) {
+    result.wheelPressures = inventory;
+    for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) if (inventory.value[wheel]) result[key] = inventory.value[wheel];
+  }
   return result;
 }
 
@@ -979,8 +976,9 @@ function nightProblems(f, prefs) {
 // Confirm each security reading's own measurement time before an all-good notice.
 function nightSecurityFresh(fields, at = now()) {
   return [['lock', 'Locked'], ['doors', 'Closed']].every(([key, value]) => {
-    const reading = fields && fields[key], time = reading && reading.measurementAt;
-    return reading && reading.value === value && typeof time === 'number' && Number.isFinite(time) &&
+    const reading = fields && fields[key], evidence = componentCoverageEvidence(key, reading);
+    const time = evidence && evidence.measurementAt;
+    return reading && reading.value === value && evidence && typeof time === 'number' && Number.isFinite(time) &&
       time > 0 && time <= at && time >= at - 5 * 60000;
   });
 }
@@ -1540,7 +1538,7 @@ class WidgetRenderer {
     this.text(p, label, 10, true); return p;
   }
   lockPill(stack) {
-    if (this.on('lock')) this.pill(stack, this.value('lock') || 'Unknown', this.value('lock') === 'Locked' ? 'lock.fill' : 'lock.open.fill');
+    if (this.on('lock')) this.pill(stack, componentStatusText(this.fields.lock, 'lock'), componentLockIcon(this.fields.lock));
   }
   batteryPill(stack) {
     if (!this.on('battery')) return;
@@ -1575,7 +1573,7 @@ class WidgetRenderer {
     const lines = [];
     if (this.on('oil')) lines.push(`Oil ${this.number('oil', '%')}`);
     if (this.on('odometer')) lines.push(`Odometer ${this.number('odometer', ' mi')}`);
-    if (this.on('doors')) lines.push(`Doors ${this.value('doors') || 'Unknown'}`);
+    if (this.on('doors')) lines.push('Doors ' + componentStatusText(this.fields.doors, 'doors'));
     if (this.on('temp')) lines.push(`Outside ${this.temp()}`);
     const pl = parked && this.place(); if (pl) lines.push(`Parked · ${pl.label}`);
     lines.slice(0, max).forEach(l => this.text(stack, l, size, true));
@@ -1619,7 +1617,7 @@ class WidgetRenderer {
   buildAccessory(family, notice) {
     const w = new ListWidget(); w.url = this.url(); w.refreshAfterDate = new Date(this.nextRefresh());
     const white = Color.white(), r = this.remote(), fuel = bounded(this.value('fuel'), 100);
-    const locked = this.value('lock'), lockIcon = locked === 'Unlocked' ? 'lock.open.fill' : 'lock.fill';
+    const locked = componentStatusText(this.fields.lock, 'lock'), lockIcon = componentLockIcon(this.fields.lock);
     const tiny = (stack, t, size, bold = false) => this.text(stack, t, size, bold, white);
     if (family === 'accessoryInline') {
       // One symbol + one line above the clock.
@@ -1736,8 +1734,8 @@ class WidgetRenderer {
       this.text(stack, value, isSmall ? 10 : 12, true, this.accent);
     };
     const status = stack => {
-      if (this.on('lock')) info(stack, 'Locks', this.value('lock') || 'Unknown');
-      if (this.on('doors')) info(stack, 'Doors', this.value('doors') || 'Unknown');
+      if (this.on('lock')) info(stack, 'Locks', componentStatusText(this.fields.lock, 'lock'));
+      if (this.on('doors')) info(stack, 'Doors', componentStatusText(this.fields.doors, 'doors'));
       if (this.on('oil')) info(stack, 'Oil life', this.number('oil', '%'));
       if (this.on('battery')) info(stack, '12V battery', this.value('battery') !== null ? this.number('battery', '%') : this.value('batteryHealth') || 'Unknown');
     };
@@ -1900,7 +1898,8 @@ class AppController {
   }
   async details(prefs) {
     const c = this.store.read() || {}, f = c.fields || {};
-    const show = (k, v) => ['outsideTemp', 'range', 'odometer', 'fl', 'fr', 'rl', 'rr'].includes(k) ? displayUnitDetailValue(k, v, prefs)
+    const show = (k, v) => ['lock', 'doors'].includes(k) ? componentStatusText(f[k], k)
+      : ['outsideTemp', 'range', 'odometer', 'fl', 'fr', 'rl', 'rr'].includes(k) ? displayUnitDetailValue(k, v, prefs)
       : k === 'position' ? (c.place && c.place.label) || `${v.lat.toFixed(5)}, ${v.lon.toFixed(5)}`
       : k === 'remoteStart' ? (v.until > now() ? `Running until ${new Date(v.until).toLocaleTimeString()}` : 'Off')
       : typeof v === 'number' ? Math.round(v * 10) / 10 : v;
@@ -1913,7 +1912,7 @@ class AppController {
       : c.image && c.image.source ? `${c.image.source} · ${age(c.image.at)}` : 'Not downloaded yet';
     lines.push(`Vehicle photo: ${photo}`);
     const n = c.night;
-    lines.push(`Evening check: ${!nightSettings(prefs).enabled ? 'Off' : n && n.done ? `${n.problems.length ? n.problems.join(', ') : n.securityFresh === true ? 'All good' : 'Limited status; current lock/door readings not confirmed'} · ${age(n.at)}` : 'Not run yet'}`);
+    lines.push(`Evening check: ${!nightSettings(prefs).enabled ? 'Off' : n && n.done ? `${n.problems.length ? n.problems.join(', ') : componentEveningConfirmed(f, n) ? 'All good' : 'Limited status; current lock/door readings not confirmed'} · ${age(n.at)}` : 'Not run yet'}`);
     if (c.lastCommand) lines.push(`Last request: ${c.lastCommand.action}\n${c.lastCommand.outcome} · ${age(c.lastCommand.at)}`);
     await message(prefs.name, lines.join('\n\n'));
   }
@@ -2645,7 +2644,7 @@ function ppoDashboardVehicle(renderer, widget) {
       if (!renderer.on(key)) continue;
       const cell = row.addStack(); cell.layoutVertically(); cell.spacing = 1; cell.size = new Size(138, 0);
       if (key === 'lock') renderer.lockPill(cell);
-      else renderer.text(cell, 'Doors ' + (renderer.value('doors') || 'Unknown'), 10, true);
+      else renderer.text(cell, 'Doors ' + componentStatusText(renderer.fields.doors, 'doors'), 10, true);
       const field = renderer.fields[key];
       renderer.text(cell, 'Reported: ' + ppoDashboardAge(field && field.at), 8, false, renderer.muted);
     }
@@ -2715,7 +2714,7 @@ WidgetRenderer.prototype.build = function(family = 'medium', notice = '') {
 
 // Local metadata only: fixed gate names, fixed cache fields, and no token reads.
 // Missing historical HTTP metadata stays unknown; a gate is not an HTTP trace.
-const FORDWIDGET_VERSION = '0.1.0';
+const FORDWIDGET_VERSION = '0.1.1';
 const WIDGET_DIAGNOSTIC_GATES = Object.freeze([
   'commands', 'commands.generalStatus', 'commands.proPower', 'telemetry.mobile',
   'telemetry.proPower', 'auth.mobile', 'auth.autonomic'
@@ -2865,7 +2864,7 @@ function statusFuelDiagnostic(raw, before, vin, clock = now(), after = before) {
 // Observe the existing temperature parser and merge without changing saved data.
 const STATUS_TEMP_UNITS = Object.freeze(['C', '°C', 'celsius', 'degC', 'CELSIUS', 'DEGREES_CELSIUS',
   'F', '°F', 'fahrenheit', 'degF', 'FAHRENHEIT', 'DEGREES_FAHRENHEIT', 'K', 'kelvin']);
-const STATUS_TEMP_SCOPE = 'One FordPass response compared with saved cache; no simultaneous FordConnect read. Existing outsideTemperature parser assumes Celsius and ignores unit labels. No conversion, alias, range or merge changes applied.';
+const STATUS_TEMP_SCOPE = 'One FordPass response compared with saved cache; no simultaneous FordConnect read. The outsideTemperature parser assumes Celsius and ignores unit labels. Measurement time uses only the metric timestamp; cloud/root times are shown separately. The report makes no telemetry writes or vehicle commands.';
 function statusTemperatureFields(fields, clock) {
   const item = statusDiagRecord(fields) && statusDiagOwn(fields, 'outsideTemp') && statusDiagRecord(fields.outsideTemp) ? fields.outsideTemp : null;
   const value = item ? statusFuelNumber(item.value) : null;
@@ -2904,7 +2903,7 @@ function statusTemperatureDiagnostic(raw, before, vin, clock = now(), after = be
   const mergeDecision = !incoming ? 'no_candidate' : !previous ? 'accepted_no_cached_value' : !previous.at ? 'accepted_cached_time_missing' :
     !incoming.at ? 'retained_candidate_time_missing' : incoming.at >= previous.at ? 'accepted_not_older' : 'retained_candidate_older';
   return { readOnly: true, scope: STATUS_TEMP_SCOPE, normalization, reason,
-    timestampSource: !incoming ? 'unknown' : timestamp(own('updateTime')) !== null ? 'metric' : timestamp(root.updateTime) !== null ? 'root' : 'unknown',
+    timestampSource: incoming && incoming.at !== null && componentTime(own('updateTime')) === incoming.at ? 'metric' : 'unknown',
     mergeDecision, rootUpdateTime: statusDiagnosticTime(root.updateTime, clock),
     raw: { outsideTemperature: statusFuelEntry(entry, STATUS_TEMP_UNITS, clock) },
     before: statusTemperatureFields(before.fields, clock), normalizedCandidate: statusTemperatureFields(candidate, clock),
@@ -3654,7 +3653,8 @@ function engineControlAllowed(prefs) {
   return !!current && ['ICE', 'HEV', 'PHEV'].includes(current.engineType) && current.transmission === 'AUTOMATIC' &&
     current.garageEngineType !== 'BEV' && current.garageTransmission !== 'MANUAL' &&
     !['unsupported', 'disabled'].includes(capabilityState(current, 'engineControl')) &&
-    (capabilityState(current, 'engineControl') === 'supported' || current.features && current.features.engineControl === true);
+    // A reported capability cannot substitute for the owner's verification.
+    !!current.features && current.features.engineControl === true;
 }
 function vehicleCommandAllowed(prefs, action) {
   const current = profilePermissionPrefs(prefs);
@@ -3960,8 +3960,11 @@ const VEHICLE_EV_CHARGE_STATES = Object.freeze(['UNKNOWN', 'NOT_PLUGGED_IN', 'FA
 const VEHICLE_PLUG_STATES = Object.freeze(['UNKNOWN', 'DISCONNECTED', 'CONNECTED']);
 const VEHICLE_WHEEL_IDS = Object.freeze(['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT',
   'REAR_LEFT_INNER', 'REAR_LEFT_OUTER', 'REAR_RIGHT_INNER', 'REAR_RIGHT_OUTER']);
-const VEHICLE_EXTRA_WHEELS = Object.freeze({ REAR_LEFT_INNER: 'rli', REAR_LEFT_OUTER: 'rlo',
+const VEHICLE_WHEEL_FIELDS = Object.freeze({ FRONT_LEFT: 'fl', FRONT_RIGHT: 'fr', REAR_LEFT: 'rl', REAR_RIGHT: 'rr',
+  REAR_LEFT_INNER: 'rli', REAR_LEFT_OUTER: 'rlo',
   REAR_RIGHT_INNER: 'rri', REAR_RIGHT_OUTER: 'rro' });
+const VEHICLE_WHEEL_ALIASES = Object.freeze({ LEFT_FRONT: 'FRONT_LEFT', RIGHT_FRONT: 'FRONT_RIGHT',
+  LEFT_REAR: 'REAR_LEFT', RIGHT_REAR: 'REAR_RIGHT' });
 const vehicleRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const vehicleOwn = (value, key) => vehicleRecord(value) && Object.prototype.hasOwnProperty.call(value, key);
 const vehicleChild = (value, key) => vehicleOwn(value, key) ? value[key] : undefined;
@@ -4002,6 +4005,14 @@ function vehicleWheelSummary(readings) {
     source: sources.size === 1 ? entries[0].source : null,
     fetchedAt: Math.max(...entries.map(entry => entry.fetchedAt || 0)) || null };
 }
+function vehiclePreferredWheel(old, reading) {
+  if (!old) return reading;
+  if (old.at && !reading.at) return old;
+  if (!old.at && reading.at) return reading;
+  if (old.at !== reading.at) return reading.at > old.at ? reading : old;
+  // Conflicting equally dated (or both undated) values must not hide a low tire.
+  return reading.value < old.value ? reading : old;
+}
 function vehicleTelemetryExtras(root, vin, source, fetchedAt, out) {
   const metrics = vehicleChild(root, 'metrics'); if (!vehicleRecord(metrics)) return;
   const put = (key, value, entry) => { if (value !== null && value !== undefined) out[key] = vehicleTelemetryReading(value, entry, source, fetchedAt); };
@@ -4020,21 +4031,35 @@ function vehicleTelemetryExtras(root, vin, source, fetchedAt, out) {
   const event = vehicleChild(vehicleChild(root, 'events'), 'xevBatteryChargeEvent');
   put('chargeEndTime', vehicleAbsoluteTime(vehicleChild(vehicleChild(event, 'tags'), 'chargeEndTime')), event);
   const pressures = vehicleChild(metrics, 'tirePressure'), readings = Object.create(null);
-  for (const entry of Array.isArray(pressures) ? pressures.slice(0, 32) : []) {
-    const wheel = vehicleChild(entry, 'vehicleWheel'), value = vehicleNumber(vehicleChild(entry, 'value'), 2000);
-    if (!VEHICLE_WHEEL_IDS.includes(wheel) || value === null || !vehicleTelemetryUnits(entry, ['kpa', 'bar', 'psi'])) continue;
+  // Never present a truncated packet as a fresh, complete set of tire data.
+  const entries = Array.isArray(pressures) && pressures.length <= 32 ? pressures : [];
+  for (const entry of entries) {
+    const rawWheel = vehicleChild(entry, 'vehicleWheel');
+    if (typeof rawWheel !== 'string') continue;
+    const wheel = vehicleChild(VEHICLE_WHEEL_ALIASES, rawWheel) || rawWheel;
+    const regular = ['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT'].includes(wheel);
+    // Preserve the legacy four-wheel scalar parser's numeric-string support.
+    // Extra positions retain their stricter schema-only numeric handling.
+    const value = vehicleNumber(regular ? finite(vehicleChild(entry, 'value')) : vehicleChild(entry, 'value'), 2000);
+    if (!VEHICLE_WHEEL_IDS.includes(wheel) || value === null) continue;
+    const labels = ['unit', 'unitSymbol'].map(key => vehicleChild(entry, key));
+    if (regular) {
+      // Existing scalar responses use absent/null/empty labels for default kPa.
+      if (labels.filter(label => label !== undefined && label !== null && label !== '').some(label =>
+        typeof label !== 'string' || !['kpa', 'bar', 'psi'].includes(label.toLowerCase()))) continue;
+    } else if (!vehicleTelemetryUnits(entry, ['kpa', 'bar', 'psi'])) continue;
     const unit = String(vehicleChild(entry, 'unit') || vehicleChild(entry, 'unitSymbol') || 'kPa').toLowerCase();
-    if (vehicleOwn(entry, 'unit') && vehicleOwn(entry, 'unitSymbol') && entry.unit.toLowerCase() !== entry.unitSymbol.toLowerCase()) continue;
+    if (labels.every(label => typeof label === 'string' && label.length > 0) && labels[0].toLowerCase() !== labels[1].toLowerCase()) continue;
     const psi = vehicleNumber(value * (unit === 'bar' ? 14.5037738 : unit === 'psi' ? 1 : 1 / 6.894757293), 150);
     if (psi === null) continue;
-    const reading = vehicleTelemetryReading(psi, entry, source, fetchedAt), old = readings[wheel];
-    if (!old || !old.at || reading.at && reading.at >= old.at) readings[wheel] = reading;
+    const reading = vehicleTelemetryReading(psi, entry, source, fetchedAt);
+    readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
   }
   const inventory = vehicleWheelSummary(readings);
   if (inventory) out.wheelPressures = inventory;
-  for (const [wheel, key] of Object.entries(VEHICLE_EXTRA_WHEELS)) if (readings[wheel]) out[key] = readings[wheel];
+  for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) if (readings[wheel]) out[key] = readings[wheel];
 }
-function vehicleMergeWheelPressures(previous, official, mobile) {
+function vehicleMergeWheelPressures(previous, official, mobile, scalars = null) {
   const readings = Object.create(null);
   for (const packet of [previous, official, mobile]) {
     const values = vehicleChild(packet, 'value'); if (!vehicleRecord(values)) continue;
@@ -4043,8 +4068,18 @@ function vehicleMergeWheelPressures(previous, official, mobile) {
       const at = vehicleAbsoluteTime(entry.at), reading = { value: entry.value, at: at !== null && at <= now() ? at : null,
         source: ['FordPass', 'FordConnect'].includes(entry.source) ? entry.source : null,
         fetchedAt: typeof entry.fetchedAt === 'number' && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0 && entry.fetchedAt <= now() ? entry.fetchedAt : null };
-      const old = readings[wheel]; if (!old || !old.at || reading.at && reading.at >= old.at) readings[wheel] = reading;
+      readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
     }
+  }
+  // Existing caches can predate the wheel inventory. Include their selected
+  // scalar readings so a new undated inventory cannot erase dated tire data.
+  for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) {
+    const entry = vehicleChild(scalars, key);
+    if (!vehicleRecord(entry) || vehicleNumber(entry.value, 150) === null) continue;
+    const at = componentTime(entry.at), reading = { value: entry.value, at,
+      source: ['FordPass', 'FordConnect'].includes(entry.source) ? entry.source : null,
+      fetchedAt: typeof entry.fetchedAt === 'number' && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0 && entry.fetchedAt <= now() ? entry.fetchedAt : null };
+    readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
   }
   return vehicleWheelSummary(readings);
 }
@@ -4161,6 +4196,49 @@ function modelReadableEnum(value) {
   return typeof value === 'string' && value.length ? value.replace(/_/g, ' ') : 'Not reported';
 }
 
+// Coverage comes from Ford's retained component evidence, never a cached flag,
+// a model name or a guessed number of doors. Raw values remain merge/alert enums.
+function componentCoverageEvidence(kind, field) {
+  if (!['lock', 'doors'].includes(kind) || !field || typeof field !== 'object' || Array.isArray(field)) return null;
+  const own = (value, key) => value && Object.prototype.hasOwnProperty.call(value, key);
+  const packet = own(field, 'componentStatus') && field.componentStatus;
+  if (!packet || Array.isArray(packet) || !['version', 'readings', 'doorList', 'hood', 'truncated', 'legacy'].every(key => own(packet, key)) ||
+      packet.version !== 1 || packet.truncated !== false || packet.legacy !== null ||
+      typeof packet.doorList !== 'boolean' || typeof packet.hood !== 'boolean' ||
+      !Array.isArray(packet.readings) || !packet.readings.length || packet.readings.length > 64) return null;
+  if (kind === 'doors' && (packet.doorList !== true || packet.hood !== true)) return null;
+  const allowed = kind === 'lock' ? ['LOCKED', 'DOUBLE_LOCKED', 'UNLOCKED', 'UNKNOWN', 'IGNORED'] : ['CLOSED', 'OPEN', 'AJAR', 'UNKNOWN'];
+  const ids = new Set();
+  for (const reading of packet.readings) {
+    if (!reading || Array.isArray(reading) || !['id', 'value', 'at', 'source', 'latch', 'unresolvedUnsafe'].every(key => own(reading, key)) ||
+        typeof reading.id !== 'string' || !/^[A-Z_]{1,40}(?:\|(?:DRIVER|PASSENGER))?$/.test(reading.id) ||
+        ids.has(reading.id) || !allowed.includes(reading.value) || !['FordPass', 'FordConnect'].includes(reading.source) ||
+        ![null, 'MECHANICAL', 'ELECTRONIC'].includes(reading.latch) || typeof reading.unresolvedUnsafe !== 'boolean' ||
+        kind === 'lock' && (reading.value === 'IGNORED') !== (reading.latch === 'MECHANICAL') ||
+        reading.at !== null && (typeof reading.at !== 'number' || componentTime(reading.at) !== reading.at)) return null;
+    ids.add(reading.id);
+  }
+  const aggregate = packet.readings.find(reading => reading.id === 'ALL_DOORS');
+  if (!aggregate || aggregate.value === 'IGNORED' || kind === 'doors' && !ids.has('HOOD')) return null;
+  const derived = componentResult(kind, packet.readings);
+  return derived.value === field.value ? derived : null;
+}
+function componentStatusText(field, kind, fallback = 'Unknown') {
+  const allowed = kind === 'lock' ? ['Locked', 'Unlocked', 'Unknown'] : ['Closed', 'Ajar', 'Unknown'];
+  const value = field && allowed.includes(field.value) ? field.value : null;
+  if (!value) return fallback;
+  return ['Locked', 'Closed'].includes(value) && !componentCoverageEvidence(kind, field) ? value + ' (partial)' : value;
+}
+function componentLockIcon(field) {
+  return field && field.value === 'Unlocked' ? 'lock.open.fill' :
+    field && field.value === 'Locked' && componentCoverageEvidence('lock', field) ? 'lock.fill' : 'questionmark';
+}
+function componentEveningConfirmed(fields, evening) {
+  const at = evening && evening.at;
+  return !!(evening && evening.securityFresh === true && typeof at === 'number' && Number.isFinite(at) &&
+    at > 0 && at <= now() && nightSecurityFresh(fields, at));
+}
+
 const MODEL_ORIGINAL_ALERT_SETTINGS = alertSettings;
 alertSettings = function(prefs) {
   const options = MODEL_ORIGINAL_ALERT_SETTINGS(prefs);
@@ -4242,8 +4320,8 @@ function modelStatusEntries(renderer) {
     value: renderer.value('battery') === null ? modelReadableEnum(renderer.value('batteryHealth')) : renderer.number('battery', '%') });
   if (renderer.on('oil')) entries.push({ key: 'oil', label: 'Oil', value: renderer.number('oil', '%') });
   if (renderer.on('odometer')) entries.push({ key: 'odometer', label: 'Odometer', value: displayUnitDistance(renderer.value('odometer'), renderer.opts.units) });
-  if (renderer.on('lock')) entries.push({ key: 'lock', label: 'Locks', value: renderer.value('lock') || 'Not reported' });
-  if (renderer.on('doors')) entries.push({ key: 'doors', label: 'Doors', value: renderer.value('doors') || 'Not reported' });
+  if (renderer.on('lock')) entries.push({ key: 'lock', label: 'Locks', value: componentStatusText(renderer.fields.lock, 'lock', 'Not reported') });
+  if (renderer.on('doors')) entries.push({ key: 'doors', label: 'Doors', value: componentStatusText(renderer.fields.doors, 'doors', 'Not reported') });
   if (renderer.on('temp')) entries.push({ key: 'outsideTemp', label: 'Outside', value: formatDisplayTemperature(renderer.value('outsideTemp'), renderer.opts.units) });
   if (renderer.on('plugStatus')) entries.push({ key: 'plugStatus', label: 'Plug', value: modelReadableEnum(renderer.value('plugStatus')) });
   if (renderer.on('chargeStatus')) entries.push({ key: 'chargeStatus', label: 'Charging', value: modelReadableEnum(renderer.value('chargeStatus')) });
@@ -4603,6 +4681,7 @@ AppController.prototype.details = async function(prefs) {
   const lines = keys.map(key => {
     const field = fields[key], raw = field && field.value; let value = raw;
     if (raw === null || raw === undefined) value = 'Not reported';
+    else if (['lock', 'doors'].includes(key)) value = componentStatusText(field, key, 'Not reported');
     else if (['range', 'evRange', 'odometer'].includes(key)) value = displayUnitDistance(raw, options.units, 1);
     else if (modelTireKeys(prefs).includes(key)) value = formatDisplayPressure(raw, options.unit, true) + ' ' + displayUnitPressureLabel(options.unit);
     else if (key === 'outsideTemp') value = formatDisplayTemperature(raw, options.units);
@@ -4620,7 +4699,7 @@ AppController.prototype.details = async function(prefs) {
   lines.push('Photo: ' + (prefs.imageMode === 'custom' ? 'From your Photos' : prefs.imageMode === 'off' ? 'Generic vehicle icon' : cache.image && cache.image.source ? cache.image.source + ' · ' + modelReadingAge(cache.image) : 'Not downloaded'));
   const evening = cache.night;
   lines.push('Evening check: ' + (!nightSettings(prefs).enabled ? 'Off' : evening && evening.done ?
-    (evening.problems && evening.problems.length ? evening.problems.join(', ') : evening.securityFresh === true ? 'Locked and closed; no enabled alerts' : 'Current security status unconfirmed') + ' · ' + modelReadingAge(evening) : 'Not run yet'));
+    (evening.problems && evening.problems.length ? evening.problems.join(', ') : componentEveningConfirmed(fields, evening) ? 'Locked and closed; no enabled alerts' : 'Current security status unconfirmed') + ' · ' + modelReadingAge(evening) : 'Not run yet'));
   if (cache.lastCommand) lines.push('Last request: ' + cache.lastCommand.action + '\n' + cache.lastCommand.outcome + ' · ' + modelReadingAge(cache.lastCommand));
   await message(modelIdentity(prefs), lines.join('\n\n'));
 };

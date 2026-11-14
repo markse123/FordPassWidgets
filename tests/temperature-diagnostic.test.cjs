@@ -82,11 +82,13 @@ test('temperature diagnostics distinguish same or changed values from older, equ
   }
 });
 
-test('metric, root fallback and unknown temperature times follow the existing timestamp parser', () => {
+test('temperature measurement times never borrow a root timestamp', () => {
   const h = harness(), before = saved(), metricAt = TIME - 1000, rootAt = TIME - 2000;
   for (const updateTime of [undefined, 'invalid-time', 0, TIME + 61000]) {
     const report = h.diagnostic(packet({ value: 15, updateTime }, { updateTime: iso(rootAt) }), before, VIN, TIME);
-    assert.equal(report.timestampSource, 'root'); assert.equal(report.normalizedCandidate.outsideTemp.at.normalizerAtMs, rootAt);
+    assert.equal(report.timestampSource, 'unknown'); assert.equal(report.normalizedCandidate.outsideTemp.at.normalizerAtMs, null);
+    assert.equal(report.mergeDecision, 'retained_candidate_time_missing');
+    assert.equal(number(report, 'wouldMerge'), 20);
   }
   const own = h.diagnostic(packet({ value: 15, updateTime: iso(metricAt) }, { updateTime: iso(rootAt) }), before, VIN, TIME);
   assert.equal(own.timestampSource, 'metric'); assert.equal(own.normalizedCandidate.outsideTemp.at.normalizerAtMs, metricAt);

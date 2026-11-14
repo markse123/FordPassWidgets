@@ -6,8 +6,11 @@ const VEHICLE_EV_CHARGE_STATES = Object.freeze(['UNKNOWN', 'NOT_PLUGGED_IN', 'FA
 const VEHICLE_PLUG_STATES = Object.freeze(['UNKNOWN', 'DISCONNECTED', 'CONNECTED']);
 const VEHICLE_WHEEL_IDS = Object.freeze(['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT',
   'REAR_LEFT_INNER', 'REAR_LEFT_OUTER', 'REAR_RIGHT_INNER', 'REAR_RIGHT_OUTER']);
-const VEHICLE_EXTRA_WHEELS = Object.freeze({ REAR_LEFT_INNER: 'rli', REAR_LEFT_OUTER: 'rlo',
+const VEHICLE_WHEEL_FIELDS = Object.freeze({ FRONT_LEFT: 'fl', FRONT_RIGHT: 'fr', REAR_LEFT: 'rl', REAR_RIGHT: 'rr',
+  REAR_LEFT_INNER: 'rli', REAR_LEFT_OUTER: 'rlo',
   REAR_RIGHT_INNER: 'rri', REAR_RIGHT_OUTER: 'rro' });
+const VEHICLE_WHEEL_ALIASES = Object.freeze({ LEFT_FRONT: 'FRONT_LEFT', RIGHT_FRONT: 'FRONT_RIGHT',
+  LEFT_REAR: 'REAR_LEFT', RIGHT_REAR: 'REAR_RIGHT' });
 const vehicleRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const vehicleOwn = (value, key) => vehicleRecord(value) && Object.prototype.hasOwnProperty.call(value, key);
 const vehicleChild = (value, key) => vehicleOwn(value, key) ? value[key] : undefined;
@@ -48,6 +51,14 @@ function vehicleWheelSummary(readings) {
     source: sources.size === 1 ? entries[0].source : null,
     fetchedAt: Math.max(...entries.map(entry => entry.fetchedAt || 0)) || null };
 }
+function vehiclePreferredWheel(old, reading) {
+  if (!old) return reading;
+  if (old.at && !reading.at) return old;
+  if (!old.at && reading.at) return reading;
+  if (old.at !== reading.at) return reading.at > old.at ? reading : old;
+  // Conflicting equally dated (or both undated) values must not hide a low tire.
+  return reading.value < old.value ? reading : old;
+}
 function vehicleTelemetryExtras(root, vin, source, fetchedAt, out) {
   const metrics = vehicleChild(root, 'metrics'); if (!vehicleRecord(metrics)) return;
   const put = (key, value, entry) => { if (value !== null && value !== undefined) out[key] = vehicleTelemetryReading(value, entry, source, fetchedAt); };
@@ -66,21 +77,35 @@ function vehicleTelemetryExtras(root, vin, source, fetchedAt, out) {
   const event = vehicleChild(vehicleChild(root, 'events'), 'xevBatteryChargeEvent');
   put('chargeEndTime', vehicleAbsoluteTime(vehicleChild(vehicleChild(event, 'tags'), 'chargeEndTime')), event);
   const pressures = vehicleChild(metrics, 'tirePressure'), readings = Object.create(null);
-  for (const entry of Array.isArray(pressures) ? pressures.slice(0, 32) : []) {
-    const wheel = vehicleChild(entry, 'vehicleWheel'), value = vehicleNumber(vehicleChild(entry, 'value'), 2000);
-    if (!VEHICLE_WHEEL_IDS.includes(wheel) || value === null || !vehicleTelemetryUnits(entry, ['kpa', 'bar', 'psi'])) continue;
+  // Never present a truncated packet as a fresh, complete set of tire data.
+  const entries = Array.isArray(pressures) && pressures.length <= 32 ? pressures : [];
+  for (const entry of entries) {
+    const rawWheel = vehicleChild(entry, 'vehicleWheel');
+    if (typeof rawWheel !== 'string') continue;
+    const wheel = vehicleChild(VEHICLE_WHEEL_ALIASES, rawWheel) || rawWheel;
+    const regular = ['FRONT_LEFT', 'FRONT_RIGHT', 'REAR_LEFT', 'REAR_RIGHT'].includes(wheel);
+    // Preserve the legacy four-wheel scalar parser's numeric-string support.
+    // Extra positions retain their stricter schema-only numeric handling.
+    const value = vehicleNumber(regular ? finite(vehicleChild(entry, 'value')) : vehicleChild(entry, 'value'), 2000);
+    if (!VEHICLE_WHEEL_IDS.includes(wheel) || value === null) continue;
+    const labels = ['unit', 'unitSymbol'].map(key => vehicleChild(entry, key));
+    if (regular) {
+      // Existing scalar responses use absent/null/empty labels for default kPa.
+      if (labels.filter(label => label !== undefined && label !== null && label !== '').some(label =>
+        typeof label !== 'string' || !['kpa', 'bar', 'psi'].includes(label.toLowerCase()))) continue;
+    } else if (!vehicleTelemetryUnits(entry, ['kpa', 'bar', 'psi'])) continue;
     const unit = String(vehicleChild(entry, 'unit') || vehicleChild(entry, 'unitSymbol') || 'kPa').toLowerCase();
-    if (vehicleOwn(entry, 'unit') && vehicleOwn(entry, 'unitSymbol') && entry.unit.toLowerCase() !== entry.unitSymbol.toLowerCase()) continue;
+    if (labels.every(label => typeof label === 'string' && label.length > 0) && labels[0].toLowerCase() !== labels[1].toLowerCase()) continue;
     const psi = vehicleNumber(value * (unit === 'bar' ? 14.5037738 : unit === 'psi' ? 1 : 1 / 6.894757293), 150);
     if (psi === null) continue;
-    const reading = vehicleTelemetryReading(psi, entry, source, fetchedAt), old = readings[wheel];
-    if (!old || !old.at || reading.at && reading.at >= old.at) readings[wheel] = reading;
+    const reading = vehicleTelemetryReading(psi, entry, source, fetchedAt);
+    readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
   }
   const inventory = vehicleWheelSummary(readings);
   if (inventory) out.wheelPressures = inventory;
-  for (const [wheel, key] of Object.entries(VEHICLE_EXTRA_WHEELS)) if (readings[wheel]) out[key] = readings[wheel];
+  for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) if (readings[wheel]) out[key] = readings[wheel];
 }
-function vehicleMergeWheelPressures(previous, official, mobile) {
+function vehicleMergeWheelPressures(previous, official, mobile, scalars = null) {
   const readings = Object.create(null);
   for (const packet of [previous, official, mobile]) {
     const values = vehicleChild(packet, 'value'); if (!vehicleRecord(values)) continue;
@@ -89,8 +114,18 @@ function vehicleMergeWheelPressures(previous, official, mobile) {
       const at = vehicleAbsoluteTime(entry.at), reading = { value: entry.value, at: at !== null && at <= now() ? at : null,
         source: ['FordPass', 'FordConnect'].includes(entry.source) ? entry.source : null,
         fetchedAt: typeof entry.fetchedAt === 'number' && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0 && entry.fetchedAt <= now() ? entry.fetchedAt : null };
-      const old = readings[wheel]; if (!old || !old.at || reading.at && reading.at >= old.at) readings[wheel] = reading;
+      readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
     }
+  }
+  // Existing caches can predate the wheel inventory. Include their selected
+  // scalar readings so a new undated inventory cannot erase dated tire data.
+  for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) {
+    const entry = vehicleChild(scalars, key);
+    if (!vehicleRecord(entry) || vehicleNumber(entry.value, 150) === null) continue;
+    const at = componentTime(entry.at), reading = { value: entry.value, at,
+      source: ['FordPass', 'FordConnect'].includes(entry.source) ? entry.source : null,
+      fetchedAt: typeof entry.fetchedAt === 'number' && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0 && entry.fetchedAt <= now() ? entry.fetchedAt : null };
+    readings[wheel] = vehiclePreferredWheel(readings[wheel], reading);
   }
   return vehicleWheelSummary(readings);
 }
