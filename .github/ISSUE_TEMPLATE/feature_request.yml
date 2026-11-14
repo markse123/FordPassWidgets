@@ -1,0 +1,41 @@
+name: Feature or improvement idea
+description: Suggest a scoped improvement, with evidence and model limits where relevant.
+title: "[Idea]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas, PRs, forks and your own coding are welcome. Discuss larger changes here before implementing a broad feature.
+
+        This form is public. Do not include credentials, VINs, account/profile identifiers, locations, raw vehicle responses, private app captures or personal screenshots. Use [private vulnerability reporting](https://github.com/markse123/FordPassWidgets/security/advisories/new) for security findings.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation and who would benefit, using model-level details only.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Recommended behavior and scope
+      description: Explain the smallest useful change, proposed settings and any alternatives. Distinguish a display feature from a vehicle-control request.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Available evidence and limitations
+      description: Public documentation links, synthetic examples or reviewed model-level observations are useful. Say when an API field, command path, model or region is unverified. A field name or another app's screen does not verify a command or grant consent to use it.
+  - type: textarea
+    id: contribution
+    attributes:
+      label: Optional contribution plan
+      description: Share whether you would like to contribute code, synthetic tests, documentation or already-available testing feedback. No new real-vehicle or command test is required.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I reviewed this public request and removed personal information, credentials and raw vehicle data.
+          required: true
