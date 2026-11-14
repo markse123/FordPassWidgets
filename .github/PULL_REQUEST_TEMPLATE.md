@@ -11,6 +11,7 @@ List the checks run and their results. Separate offline tests, native Scriptable
 - [ ] The completed diff received a pre-PR review, with blocking findings resolved or clearly identified.
 - [ ] Source, generated output and manifest are consistent where widget code changed; applicable version and installer checks are satisfied.
 - [ ] Relevant regression coverage and affected usage/model-support/website documentation are updated, or I explained why no changes are needed.
+- [ ] I reviewed `docs/features.json` for user-visible feature changes and regenerated README.md with the normal build, or explained why the existing summaries remain accurate.
 - [ ] Vehicle/account isolation, owner opt-ins, confirmations, cooldowns, measurement ages and unknown values remain intact where relevant.
 - [ ] I reviewed the diff and report for credentials, VINs, identifiers, locations, raw vehicle data, personal screenshots and private captures; only synthetic fixtures or reviewed minimal redacted excerpts are included.
 - [ ] Existing licensing and credits are preserved.
