@@ -45,9 +45,12 @@ node source/ui.test.cjs
 node source/parser.test.cjs
 node --input-type=module --check < FordPassWidgets.js
 python3 source/release.py --check
+python3 source/check-doc-links.py
 ```
 
 Use meaningful regression coverage for changed behavior, including failure and isolation cases. For documentation-only edits, check local links and run `git diff --check`; new runtime tests and a widget version bump are not needed. The required CI checks must still pass. See [the validation workflow](.github/workflows/validate.yml) for the current CI commands and base-commit release checks.
+
+Keep public hosting checks separate from offline tests. `source/check-hosted-install.py` deliberately contacts public GitHub distribution URLs; its regression tests must use HTTP fakes. Never use the hosted checker to contact Ford or execute downloaded code.
 
 ## Review, documentation and releases
 

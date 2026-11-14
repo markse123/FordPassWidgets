@@ -42,6 +42,8 @@ Security measures include an installer pinned to a reviewed release with SHA-256
 
 Start with [CONTRIBUTING](docs/CONTRIBUTING.md) for the local build, offline tests and what to share from a real-vehicle test. [MODEL-SUPPORT](docs/MODEL-SUPPORT.md) separates design from verification; [ANDROID-FEATURES](docs/ANDROID-FEATURES.md) inventories cloud candidates, Bluetooth-only evidence and model-by-model screening. Start with the cached **Troubleshooting → Model support report** when sharing a vehicle finding. Please keep credentials, VINs, locations, real telemetry captures and personal screenshots out of commits and issues.
 
+Use the issue forms for bugs, model-testing feedback and feature ideas. Please report security concerns through the private route in [SECURITY](SECURITY.md). [Development](docs/DEVELOPMENT.md#github-repository-safeguards) documents CI, source scanning, Action updates and installation checks.
+
 ## License and attribution
 
 Distributed under the [MIT License](LICENSE). Derived from [rushilpunu/FordWidget](https://github.com/rushilpunu/FordWidget) and the [markse123/FordWidget](https://github.com/markse123/FordWidget) Pro Power fork. Existing copyright notices are retained. [CREDITS](CREDITS.md) records the widget authors, inherited API-reference projects, runtime/services and community testing. FordPassWidgets is independent of Ford Motor Company.

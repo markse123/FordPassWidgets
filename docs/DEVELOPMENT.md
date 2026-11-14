@@ -6,7 +6,7 @@ For contribution ideas and a redacted manual-test template, start with [CONTRIBU
 
 ## Build and check
 
-Requirements: Python 3 and a recent Node.js with its built-in test runner. No downloaded build dependencies or Ford account are required.
+CI uses Node.js 24 and Python 3.14 on Ubuntu 24.04. Use those maintained versions for the closest local match. No third-party build packages or Ford account are required.
 
 ```sh
 python3 source/build.py
@@ -15,6 +15,7 @@ node source/core.test.cjs
 node source/ui.test.cjs
 node source/parser.test.cjs
 node --input-type=module --check < FordPassWidgets.js
+python3 source/check-doc-links.py
 ```
 
 The tests mock Scriptable storage, UI and network APIs. Fixtures must be synthetic; the build/tests must never request real Ford telemetry or send vehicle commands. Rebuilding twice must produce identical widget and manifest bytes. Commit relevant source changes, generated output and `source/build-manifest.json` together.
@@ -75,7 +76,11 @@ Release preparation is offline. After publishing the code, separately verify the
 
 `main` requires a pull request and the up-to-date **offline-checks** GitHub Actions result, including for administrators. Force pushes and branch deletion are blocked, and review conversations must be resolved. Merge commits preserve the code commits referenced by immutable installer URLs; squash/rebase merging is disabled.
 
-The required job checks the deterministic build, JavaScript syntax, offline regressions, version increases for changed widget bytes, and agreement between the version, manifest, installer checksum/source commit and install page. It runs on pull requests, `main` pushes and `v*` tag pushes with read-only repository permissions, a pinned checkout action and a bounded job timeout.
+The required job checks the deterministic build, JavaScript syntax, offline regressions, local documentation links and anchors, version increases for changed widget bytes, and agreement between the version, manifest, installer checksum/source commit and install page. It runs on pull requests, `main` pushes and `v*` tag pushes with read-only repository permissions, full commit pins for checkout/runtime setup Actions and a bounded job timeout. Node and Python versions are selected explicitly rather than inherited from the runner image.
+
+Dependabot checks GitHub Actions monthly and groups available Action updates into a reviewable PR. Full commit pins are retained, and updates still need review and the required checks. There are no npm or pip package manifests to maintain. GitHub automatically deletes merged PR head branches; protected `main`, version tags and installer-referenced commits retain their existing protections.
+
+GitHub CodeQL default setup scans JavaScript, Python and Actions using the standard query suite. It provides additional source analysis, not proof of runtime safety or real-vehicle compatibility. Its initial findings should be reviewed before adding a new mandatory merge gate. The existing required `offline-checks` remains in place. Private vulnerability reporting is enabled; [SECURITY](../SECURITY.md) describes the reporting route and data to exclude.
 
 A version-tag run additionally requires the exact `vMAJOR.MINOR.PATCH` name from `source/version.json`, a checkout matching that tag, and a tagged commit reachable from `origin/main`. It checks the release pin without treating a tag event's previous ref as a version-bump base. Tag checks run **after a tag is pushed**: confirm that run succeeds before publishing a release. For a future release such as `v0.1.1`, run from the matching tag's checkout after fetching `origin/main`:
 
@@ -94,3 +99,11 @@ GitHub Pages publishes `main` → `/docs` at **https://markse123.github.io/FordP
 The site has no external fonts, analytics or Ford account form. The script preloads only the same-origin installer so an explicit Copy tap can use Safari's clipboard gesture; denied clipboard access exposes selected manual-copy text. Keep the no-JavaScript source/manual guide fallback, keyboard focus, reduced-motion styles and readable small-screen layout.
 
 Check the copy/manual-copy flow and local links with `node --test tests/site.test.cjs tests/installer.test.cjs`. Serve `docs/` with a local static HTTP server for desktop/mobile browser checks. Match the displayed version/source link to the final installer pin, and keep feature claims consistent with [MODEL-SUPPORT](MODEL-SUPPORT.md).
+
+## Hosted installation check
+
+`python3 source/check-hosted-install.py` is a separate, deliberately online distribution check. It fetches only the public Pages installer and its canonical, immutable GitHub widget URL, then compares the bytes, version and SHA-256 with the reviewed checkout. It never executes the downloaded installer/widget, signs in, reads an account or contacts Ford. Run it from a checkout matching the published installation metadata.
+
+The **Check hosted installation** workflow runs after a successful Pages build on `main`, on release publication, weekly and by manual dispatch. It checks out trusted `main` without persisted credentials and does not consume PR code or workflow artifacts. Network failures, stale deployment metadata or a checksum mismatch fail this distribution check; investigate Pages propagation and the expected release before retrying. The check is separate from offline PR validation so a temporary public-hosting failure does not block an unrelated code contribution.
+
+The offline documentation checker covers repository Markdown and HTML local links and anchors. External website availability is outside its scope; it makes no network requests. Its regression fixtures and the hosted checker's HTTP fakes run under the normal Node test command.

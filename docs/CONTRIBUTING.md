@@ -4,7 +4,7 @@
 
 ## Start locally
 
-You need Git, Python 3 and a recent Node.js with the built-in test runner. No downloaded build dependencies or Ford credentials are needed for offline work.
+You need Git, Node.js 24 and Python 3.14 to match CI. No third-party build packages or Ford credentials are needed for offline work.
 
 ```sh
 git clone https://github.com/markse123/FordPassWidgets.git
@@ -16,11 +16,14 @@ node source/core.test.cjs
 node source/ui.test.cjs
 node source/parser.test.cjs
 node --input-type=module --check < FordPassWidgets.js
+python3 source/check-doc-links.py
 ```
 
 Edit the relevant source module rather than the generated widget. Rebuild and include both source and the generated `FordPassWidgets.js`/manifest in your PR. [DEVELOPMENT](DEVELOPMENT.md) describes the source boundaries and release checks. Keep changes focused so reviewers can understand the problem, resulting behavior and validation.
 
 ## What makes a useful PR
+
+Use the repository's bug, model-testing or feature-request forms to open an issue. The PR template asks for the resulting behavior, model evidence, privacy review and validation. Security findings belong in [private vulnerability reporting](../SECURITY.md), not a public issue or vehicle test report.
 
 - Explain a concrete trigger and before/after behavior, including affected models only where supported by evidence.
 - Use synthetic fixtures for parsing, missing/unknown fields, timestamps, units, vehicle binding, permission and failure cases. A missing reading must not become zero, a disabled command must stay disabled, and data must not cross vehicle/account boundaries.

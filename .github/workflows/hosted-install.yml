@@ -1,0 +1,43 @@
+name: Check hosted installation
+
+on:
+  workflow_run:
+    workflows: [pages-build-deployment]
+    types: [completed]
+    branches: [main]
+  release:
+    types: [published]
+  schedule:
+    - cron: '23 10 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-install-main
+  cancel-in-progress: false
+
+jobs:
+  hosted-install:
+    if: >-
+      github.repository == 'markse123/FordPassWidgets' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Always use trusted main. Never check out workflow_run's head, consume PR
+      # artifacts or cache executable data supplied by another workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Verify public installer and immutable widget
+        run: python3 source/check-hosted-install.py
