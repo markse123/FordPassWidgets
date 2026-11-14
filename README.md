@@ -2,7 +2,7 @@
 
 Your Ford vehicles, at a glance. **FordPassWidgets** is an independent, open-source iPhone widget app for [Scriptable](https://scriptable.app), designed for gas, hybrid, plug-in hybrid and electric Ford vehicles on one Ford account.
 
-**v0.1.0** · [Easy installation](https://markse123.github.io/FordPassWidgets/) · [Script source](FordPassWidgets.js) · [Setup and usage](docs/USAGE.md) · [Model support](docs/MODEL-SUPPORT.md) · [Android feature research](docs/ANDROID-FEATURES.md)
+**v0.1.1** · [Easy installation](https://markse123.github.io/FordPassWidgets/) · [Script source](FordPassWidgets.js) · [Setup and usage](docs/USAGE.md) · [Model support](docs/MODEL-SUPPORT.md) · [Android feature research](docs/ANDROID-FEATURES.md)
 
 **Runs locally. No project data collection.** The widget runs in Scriptable on your device. The project has no developer-operated backend, analytics or tracking, and does not automatically upload your account details, vehicle data or reports to its maintainers. Settings, tokens and cached readings are stored locally by Scriptable. The app still contacts Ford for sign-in and vehicle data, plus the documented optional location/weather services. [Privacy details](docs/USAGE.md#privacy-and-removal).
 

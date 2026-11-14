@@ -20,7 +20,9 @@ changes = []
 modules = [
     ('profile-patches.json', 'vehicle-profiles.js'),
     ('telemetry-patches.json', 'vehicle-telemetry.js'),
+    ('measurement-fixes-patches.json', 'measurement-fixes.js'),
     ('model-ui-patches.json', 'vehicle-model-ui.js'),
+    ('component-coverage-patches.json', 'component-coverage.js'),
     ('support-report-patches.json', 'model-support-report.js'),
     ('app-patches.json', 'vehicle-app.js'),
     ('selftest-patches.json', 'vehicle-selftest.js'),

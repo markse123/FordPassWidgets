@@ -1,6 +1,6 @@
 # Development
 
-`FordPassWidgets.js` is the generated, installable Scriptable application for **FordPassWidgets v0.1.0**. Users install that one script; the modular source, builder and offline fixtures are for contributors. This is an independent project derived from both [rushilpunu/FordWidget](https://github.com/rushilpunu/FordWidget) and [markse123/FordWidget](https://github.com/markse123/FordWidget).
+`FordPassWidgets.js` is the generated, installable Scriptable application for **FordPassWidgets v0.1.1**. Users install that one script; the modular source, builder and offline fixtures are for contributors. This is an independent project derived from both [rushilpunu/FordWidget](https://github.com/rushilpunu/FordWidget) and [markse123/FordWidget](https://github.com/markse123/FordWidget).
 
 For contribution ideas and a redacted manual-test template, start with [CONTRIBUTING](CONTRIBUTING.md). [MODEL-SUPPORT](MODEL-SUPPORT.md) is the authoritative distinction between intended coverage and live verification.
 
@@ -69,6 +69,8 @@ python3 source/release.py --check --base FULL_BASE_COMMIT_SHA
 ```
 
 Release preparation is offline. After publishing the code, separately verify the hosted pinned bytes and SHA-256 before releasing the install page. Keep the referenced code commit reachable; a regular merge preserves it, while squashing away a pinned commit can leave the install source outside durable history. Never ship a placeholder, moving-branch URL or fabricated hash as the immutable installer pin.
+
+Preparation and validation require the selected code commit to be an ancestor of the current release `HEAD`. A matching commit on a separate temporary branch is rejected, even if it is currently available locally or on GitHub. This keeps automatic branch cleanup from removing the only durable reference to an installer pin.
 
 `docs/installer.js` is a separate Scriptable script. It checks the pinned widget and installed version, refuses downgrade/malformed/conflicting versions, asks before replacing a script and saves a code backup. It must not execute downloaded code or read widget credentials/cache. Preserve an existing FordPassWidgets script name so its widgets remain connected; never silently replace a predecessor project.
 

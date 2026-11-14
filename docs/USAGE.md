@@ -1,6 +1,6 @@
 # FordPassWidgets — setup and usage
 
-These instructions describe **v0.1.0** of [markse123/FordPassWidgets](https://github.com/markse123/FordPassWidgets). It is a separate application derived from FordWidget and FordWidget Pro Power, designed for multiple Ford vehicles on one account, including EVs. Model coverage remains subject to real-vehicle testing; consult [MODEL-SUPPORT](MODEL-SUPPORT.md).
+These instructions describe **v0.1.1** of [markse123/FordPassWidgets](https://github.com/markse123/FordPassWidgets). It is a separate application derived from FordWidget and FordWidget Pro Power, designed for multiple Ford vehicles on one account, including EVs. Model coverage remains subject to real-vehicle testing; consult [MODEL-SUPPORT](MODEL-SUPPORT.md).
 
 ## Install and connect
 
@@ -64,9 +64,13 @@ Naming **reading fields** selects only those fields; a vehicle binding, format o
 
 ## Features, controls and alerts
 
+Door and lock states describe the components Ford reported. A healthy state without whole-vehicle aggregate evidence is labeled **Closed (partial)** or **Locked (partial)**, including older cached readings whose coverage is unknown. The individual readings and their ages remain visible. A partial healthy result cannot produce the evening **Locked and closed** all-clear message; confirmed aggregate door status also needs a reported hood state. Open/unlocked readings still raise their applicable alerts.
+
 Open **Vehicle features** for each vehicle. Review **Powertrain** and **Transmission**; known FordPass-reported values stay fixed, while unknown values need owner review. Ford capability hints do not verify a live command. Controls begin disabled. Enable only appropriate actions shown as available in your Ford app. The features screen never sends a test command; use an enabled action separately if you deliberately want to test it, then check actual completion. A request receipt is not proof the vehicle completed it.
 
 Lock/unlock and engine start/stop use inherited confirmed actions, where enabled and eligible. Engine controls also require **I verified remote engine control is available** plus the individual start/stop choices and an appropriate configured powertrain/transmission; unknown and electric powertrains must not be treated as remote-start-capable combustion vehicles. **EV climate/conditioning, start/stop charging and charge-limit controls are not implemented.** There is no Pro Power outlet switching.
+
+Turning engine verification off disables Start and Stop even when Ford reports that capability. Lock/unlock permissions remain separate. A remote-start countdown is shown only when Ford supplies its own valid measurement time; reading an undated countdown again cannot restart the timer.
 
 In **Tires & alerts**, choose evening conditions and the optional cached-status attention indicator. Open **Tires & axle thresholds** there or in Customize widgets to select four tires or six tires (dual rear). **Low-tire alerts are off until both front/rear thresholds are saved**, then can be enabled separately. These are your alert limits, not recommended inflation pressures. Choose appropriate values using the vehicle's tire information/owner guidance; the app does not infer them from a model name or past pressure. Threshold entry follows the selected display pressure unit.
 
@@ -106,6 +110,8 @@ Enable **Wake / refresh** in that vehicle's **Vehicle features** to expose Refre
 The completion message identifies stages that completed, failed or were skipped. A request may be accepted without confirmed device completion. Cooldowns and server backoff can prevent another request; saved data is retained rather than relabeled as a new sample. Do not repeatedly retry or clear cooldowns.
 
 **Fetch telemetry** reads Ford's stored cloud telemetry without an explicit vehicle wake/status request. That still uses the network. A successful cloud read does not guarantee new measurements. Root response time, fetch time, command time and individual measurement times differ. Compare each field's reported age in details; a newer tire reading does not make locks or temperature current.
+
+If an individual reading has no valid measurement timestamp, its time stays unknown rather than using the cloud response time. Undated numeric updates cannot replace saved dated measurements. Tire readings use the newest dated sample for each reported wheel in both displays and alerts; conflicting pressures with the same timestamp use the lower value.
 
 Pro Power's **Status result** age does not verify embedded sample time. A zero/old result may be all Ford returns while the vehicle is off. Refresh does not start the engine or switch Pro Power outlets. iOS decides when the Home Screen redraws after Scriptable saves data.
 

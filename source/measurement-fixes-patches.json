@@ -1,0 +1,34 @@
+{
+  "patches": [
+    {
+      "label": "retain unknown scalar sample times instead of borrowing cloud time",
+      "before": "    out[key] = { value, at: timestamp(entry && entry.updateTime) || timestamp(root.updateTime) || null, source, fetchedAt };",
+      "after": "    out[key] = { value, at: componentTime(entry && entry.updateTime), source, fetchedAt };"
+    },
+    {
+      "label": "normalize all displayed tires through the shared wheel inventory",
+      "before": "  const positions = { FRONT_LEFT: 'fl', FRONT_RIGHT: 'fr', REAR_LEFT: 'rl', REAR_RIGHT: 'rr', LEFT_FRONT: 'fl', RIGHT_FRONT: 'fr', LEFT_REAR: 'rl', RIGHT_REAR: 'rr' };\n  for (const t of Array.isArray(m.tirePressure) ? m.tirePressure : []) {\n    const field = positions[t.vehicleWheel], v = bounded(t.value, 2000);\n    const unit = String(t.unit || t.unitSymbol || 'kPa').toLowerCase();\n    const factor = unit === 'kpa' ? 1 / 6.894757293 : unit === 'bar' ? 14.5037738 : unit === 'psi' ? 1 : null;\n    if (field) put(field, v !== null && factor !== null ? bounded(v * factor, 150) : null, t);\n  }\n",
+      "after": "  // All wheel fields are selected together by vehicleTelemetryExtras below.\n"
+    },
+    {
+      "label": "require a measured sample time for remote start countdown deadlines",
+      "before": "  if (rsv !== null) {\n    const from = timestamp(rs.updateTime) || timestamp(root.updateTime) || fetchedAt;\n    put('remoteStart', { until: rsv > 0 ? from + rsv * 1000 : 0 }, rs);\n  }",
+      "after": "  const countdownAt = componentTime(rs && rs.updateTime);\n  if (rsv !== null && countdownAt !== null) {\n    put('remoteStart', { until: rsv > 0 ? countdownAt + rsv * 1000 : 0 }, rs);\n  }"
+    },
+    {
+      "label": "keep merged tire scalars and wheel inventory on the same selected reading",
+      "before": "  const inventory = vehicleMergeWheelPressures(previous.wheelPressures, official.wheelPressures, mobile.wheelPressures);\n  if (inventory) result.wheelPressures = inventory;",
+      "after": "  const inventory = vehicleMergeWheelPressures(previous.wheelPressures, official.wheelPressures, mobile.wheelPressures, result);\n  if (inventory) {\n    result.wheelPressures = inventory;\n    for (const [wheel, key] of Object.entries(VEHICLE_WHEEL_FIELDS)) if (inventory.value[wheel]) result[key] = inventory.value[wheel];\n  }"
+    },
+    {
+      "label": "describe metric-only temperature measurement evidence in diagnostics",
+      "before": "const STATUS_TEMP_SCOPE = 'One FordPass response compared with saved cache; no simultaneous FordConnect read. Existing outsideTemperature parser assumes Celsius and ignores unit labels. No conversion, alias, range or merge changes applied.';",
+      "after": "const STATUS_TEMP_SCOPE = 'One FordPass response compared with saved cache; no simultaneous FordConnect read. The outsideTemperature parser assumes Celsius and ignores unit labels. Measurement time uses only the metric timestamp; cloud/root times are shown separately. The report makes no telemetry writes or vehicle commands.';"
+    },
+    {
+      "label": "report temperature timestamp source without cloud-time fallback",
+      "before": "    timestampSource: !incoming ? 'unknown' : timestamp(own('updateTime')) !== null ? 'metric' : timestamp(root.updateTime) !== null ? 'root' : 'unknown',",
+      "after": "    timestampSource: incoming && incoming.at !== null && componentTime(own('updateTime')) === incoming.at ? 'metric' : 'unknown',"
+    }
+  ]
+}

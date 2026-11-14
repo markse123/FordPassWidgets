@@ -127,6 +127,11 @@ def prepare_release(root, commit=None, check=False, base=None):
         commit = SOURCE_RE.fullmatch(old_source)[1]
     if git(root, "cat-file", "-t", commit).strip() != b"commit":
         raise ValueError("The selected object must be a commit.")
+    # A pin reachable only from a temporary branch can disappear after cleanup.
+    ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"],
+                              cwd=root, capture_output=True, check=False)
+    if ancestry.returncode:
+        raise ValueError("The selected code commit must be an ancestor of HEAD so the installer pin remains in release history.")
     if base is not None:
         check_version_bump(root, base, widget, version)
 

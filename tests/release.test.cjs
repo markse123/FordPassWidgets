@@ -128,6 +128,19 @@ function writeIndex(f, version = f.version, sha = f.sha, filename = WIDGET_URL_F
 function check(f, base) {
   return cp.spawnSync('python3', ['source/release.py', '--check', ...(base ? ['--base', base] : [])], {cwd: f.dir, encoding: 'utf8'});
 }
+function fileSnapshot(dir) {
+  const result = [];
+  function walk(folder) {
+    for (const name of fs.readdirSync(folder).sort()) {
+      const file = path.join(folder, name), stat = fs.lstatSync(file);
+      if (stat.isDirectory()) walk(file);
+      else result.push([path.relative(dir, file), stat.mode, stat.mtimeMs,
+        stat.isSymbolicLink() ? fs.readlinkSync(file) : fs.readFileSync(file).toString('base64')]);
+    }
+  }
+  walk(dir);
+  return result;
+}
 function changeWidget(f, version, extra = '') {
   f.version = version;
   f.widget = f.widget.replace(/^FordPassWidgets [^\r\n]*$/m, 'FordPassWidgets ' + version)
@@ -147,6 +160,48 @@ test('read-only release check validates the pin, exact source commit and page wi
   files.forEach((p, i) => assert.deepEqual(fs.readFileSync(path.join(f.dir, p)), before[i], p));
   git(f.dir, 'remote', 'set-url', 'origin', 'https://github.com/markse123/FordPassWidgets');
   assert.equal(check(f).status, 0, 'Canonical origin without .git is accepted');
+});
+
+test('release pin rejects matching code on a separate temporary branch in preparation and check modes without writes', t => {
+  const f = fixture(t);
+  git(f.dir, 'switch', '-c', 'temporary-code');
+  fs.writeFileSync(path.join(f.dir, 'TEMPORARY.md'), 'Synthetic temporary code branch.\n');
+  git(f.dir, 'add', '.'); git(f.dir, 'commit', '-qm', 'Synthetic separate code commit');
+  const separate = git(f.dir, 'rev-parse', 'HEAD');
+  git(f.dir, 'switch', 'main');
+  fs.writeFileSync(path.join(f.dir, 'RELEASE.md'), 'Synthetic release branch.\n');
+  git(f.dir, 'add', '.'); git(f.dir, 'commit', '-qm', 'Synthetic release head');
+  assert.equal(git(f.dir, 'cat-file', '-t', separate), 'commit', 'The branch pin exists locally');
+  for (const name of [WIDGET_FILE, 'source/version.json', 'source/build-manifest.json'])
+    assert.equal(git(f.dir, 'show', separate + ':' + name), fs.readFileSync(path.join(f.dir, name), 'utf8').trim(), name);
+
+  let before = fileSnapshot(f.dir);
+  const prepare = run(f, separate);
+  assert.equal(prepare.status, 1); assert.match(prepare.stderr, /ancestor of HEAD/);
+  assert.deepEqual(fileSnapshot(f.dir), before, 'Rejected preparation must not change any file or ref');
+
+  const installer = f.installer
+    .replace(/^const INSTALL_VERSION = '[^']+';$/m, "const INSTALL_VERSION = '" + f.version + "';")
+    .replace(/^const INSTALL_SOURCE = '[^']+';$/m, "const INSTALL_SOURCE = 'https://raw.githubusercontent.com/markse123/FordPassWidgets/" + separate + '/' + WIDGET_URL_FILE + "';")
+    .replace(/^const INSTALL_SHA256 = '[^']+';$/m, "const INSTALL_SHA256 = '" + hash(f.widget) + "';");
+  fs.writeFileSync(f.installerPath, installer); writeIndex(f, f.version, separate);
+  before = fileSnapshot(f.dir);
+  const validation = check(f);
+  assert.equal(validation.status, 1); assert.match(validation.stderr, /ancestor of HEAD/);
+  assert.deepEqual(fileSnapshot(f.dir), before, 'Rejected validation must not change any file or ref');
+});
+
+test('release pin remains valid after the normal same-branch distribution metadata commit', t => {
+  const f = fixture(t);
+  assert.equal(run(f).status, 0); writeIndex(f);
+  git(f.dir, 'add', '.'); git(f.dir, 'commit', '-qm', 'Synthetic distribution metadata');
+  const metadataCommit = git(f.dir, 'rev-parse', 'HEAD');
+  assert.notEqual(metadataCommit, f.sha);
+  git(f.dir, 'merge-base', '--is-ancestor', f.sha, metadataCommit);
+  const before = fileSnapshot(f.dir), result = check(f);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fileSnapshot(f.dir), before, 'Validation of an ancestral pin stays read-only');
+  assert.equal(run(f, f.sha).status, 0, 'Preparing the same ancestral pin remains supported');
 });
 
 test('read-only release check fails on stale pin, missing source commit and disagreeing page metadata', t => {

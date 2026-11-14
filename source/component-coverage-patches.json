@@ -1,0 +1,44 @@
+{
+  "patches": [
+    {
+      "label": "require aggregate component evidence for positive evening security status",
+      "before": "    const reading = fields && fields[key], time = reading && reading.measurementAt;\n    return reading && reading.value === value && typeof time === 'number' && Number.isFinite(time) &&",
+      "after": "    const reading = fields && fields[key], evidence = componentCoverageEvidence(key, reading);\n    const time = evidence && evidence.measurementAt;\n    return reading && reading.value === value && evidence && typeof time === 'number' && Number.isFinite(time) &&"
+    },
+    {
+      "label": "label partial lock coverage without a whole-vehicle closed-lock icon",
+      "before": "    if (this.on('lock')) this.pill(stack, this.value('lock') || 'Unknown', this.value('lock') === 'Locked' ? 'lock.fill' : 'lock.open.fill');",
+      "after": "    if (this.on('lock')) this.pill(stack, componentStatusText(this.fields.lock, 'lock'), componentLockIcon(this.fields.lock));"
+    },
+    {
+      "label": "label partial door coverage in legacy extras",
+      "before": "    if (this.on('doors')) lines.push(`Doors ${this.value('doors') || 'Unknown'}`);",
+      "after": "    if (this.on('doors')) lines.push('Doors ' + componentStatusText(this.fields.doors, 'doors'));"
+    },
+    {
+      "label": "label component coverage in legacy accessory views",
+      "before": "    const locked = this.value('lock'), lockIcon = locked === 'Unlocked' ? 'lock.open.fill' : 'lock.fill';",
+      "after": "    const locked = componentStatusText(this.fields.lock, 'lock'), lockIcon = componentLockIcon(this.fields.lock);"
+    },
+    {
+      "label": "label component coverage in legacy alternative designs",
+      "before": "      if (this.on('lock')) info(stack, 'Locks', this.value('lock') || 'Unknown');\n      if (this.on('doors')) info(stack, 'Doors', this.value('doors') || 'Unknown');",
+      "after": "      if (this.on('lock')) info(stack, 'Locks', componentStatusText(this.fields.lock, 'lock'));\n      if (this.on('doors')) info(stack, 'Doors', componentStatusText(this.fields.doors, 'doors'));"
+    },
+    {
+      "label": "label component coverage in legacy vehicle details",
+      "before": "    const show = (k, v) => ['outsideTemp', 'range', 'odometer', 'fl', 'fr', 'rl', 'rr'].includes(k) ? displayUnitDetailValue(k, v, prefs)",
+      "after": "    const show = (k, v) => ['lock', 'doors'].includes(k) ? componentStatusText(f[k], k)\n      : ['outsideTemp', 'range', 'odometer', 'fl', 'fr', 'rl', 'rr'].includes(k) ? displayUnitDetailValue(k, v, prefs)"
+    },
+    {
+      "label": "label partial door coverage in the inherited Pro Power dashboard",
+      "before": "      else renderer.text(cell, 'Doors ' + (renderer.value('doors') || 'Unknown'), 10, true);",
+      "after": "      else renderer.text(cell, 'Doors ' + componentStatusText(renderer.fields.doors, 'doors'), 10, true);"
+    },
+    {
+      "label": "revalidate historical evening all-clear against retained aggregate evidence",
+      "before": "n.securityFresh === true ? 'All good'",
+      "after": "componentEveningConfirmed(f, n) ? 'All good'"
+    }
+  ]
+}

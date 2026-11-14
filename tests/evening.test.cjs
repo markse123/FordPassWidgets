@@ -9,7 +9,7 @@ const security = at => ({ lock: { value: 'Locked', at, measurementAt: at, source
 const metrics = (at = TIME - 30000, values = {}) => ({
   fuelLevel: { value: 77, updateTime: iso(TIME) },
   doorLockStatus: [{ vehicleDoor: 'ALL_DOORS', value: values.lock || 'LOCKED', updateTime: iso(at) }],
-  doorStatus: [{ vehicleDoor: 'FRONT_LEFT', value: values.doors || 'CLOSED', updateTime: iso(at) }],
+  doorStatus: [{ vehicleDoor: 'ALL_DOORS', value: values.doors || 'CLOSED', updateTime: iso(at) }],
   hoodStatus: { vehicleDoor: 'HOOD', value: 'CLOSED', updateTime: iso(at) }
 });
 

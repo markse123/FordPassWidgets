@@ -122,7 +122,8 @@ function engineControlAllowed(prefs) {
   return !!current && ['ICE', 'HEV', 'PHEV'].includes(current.engineType) && current.transmission === 'AUTOMATIC' &&
     current.garageEngineType !== 'BEV' && current.garageTransmission !== 'MANUAL' &&
     !['unsupported', 'disabled'].includes(capabilityState(current, 'engineControl')) &&
-    (capabilityState(current, 'engineControl') === 'supported' || current.features && current.features.engineControl === true);
+    // A reported capability cannot substitute for the owner's verification.
+    !!current.features && current.features.engineControl === true;
 }
 function vehicleCommandAllowed(prefs, action) {
   const current = profilePermissionPrefs(prefs);

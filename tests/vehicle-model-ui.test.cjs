@@ -178,7 +178,7 @@ test('friendly generic identity, location and every field age use their own read
   const data=snapshot();data.fetchedAt=TIME;data.fields.outsideTemp.at=null;data.fields.lock.at=TIME-3600000;
   const widget=new a.WidgetRenderer(prefs,data).build('large'),text=texts(widget).join('\n');
   assert.match(text,/Ford vehicle/);assert.doesNotMatch(text,/F-150|F150/);
-  assert.match(text,/Outside 68°F · time unknown/);assert.match(text,/Locks Locked · 1h 0m ago/);
+  assert.match(text,/Outside 68°F · time unknown/);assert.match(text,/Locks Locked \(partial\) · 1h 0m ago/);
   assert.match(text,/FL 35\n30s ago/);assert.equal(h.state.requests.length,0);store.release();
 });
 
