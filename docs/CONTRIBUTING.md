@@ -11,6 +11,7 @@ git clone https://github.com/markse123/FordPassWidgets.git
 cd FordPassWidgets
 git switch -c your-change
 python3 source/build.py
+python3 source/readme.py --check
 node --test tests/*.test.cjs source/widget.test.cjs
 node source/core.test.cjs
 node source/ui.test.cjs
@@ -20,6 +21,8 @@ python3 source/check-doc-links.py
 ```
 
 Edit the relevant source module rather than the generated widget. Rebuild and include both source and the generated `FordPassWidgets.js`/manifest in your PR. [DEVELOPMENT](DEVELOPMENT.md) describes the source boundaries and release checks. Keep changes focused so reviewers can understand the problem, resulting behavior and validation.
+
+For a user-visible feature addition, removal or changed limitation, update the reviewed summary and documentation link in [the feature catalog](features.json). `python3 source/build.py` automatically refreshes the README feature list and version line; commit the resulting README with the catalog change. The generator preserves setup, privacy, credits and the detailed evidence paragraphs. Bug fixes can leave summaries unchanged when they still describe the resulting behavior. CI checks for stale generated sections before building. See [README generation](DEVELOPMENT.md#readme-generation) for the schema and standalone command.
 
 ## What makes a useful PR
 

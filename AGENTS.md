@@ -15,6 +15,7 @@ Keep this file concise. Put detailed implementation and usage guidance in those 
 
 - Edit the relevant `source/` modules, then run `python3 source/build.py`. Do not hand-edit the generated `FordPassWidgets.js` or bypass the builder's source hashes and patch checks.
 - Commit source changes, the rebuilt widget and `source/build-manifest.json` together when widget code changes. Builds must be deterministic.
+- Review `docs/features.json` for user-visible feature changes, including removals and limitations. The normal build regenerates the README version line and feature list from that catalog and `source/version.json`. Commit the catalog and regenerated README together; keep setup, privacy, credits and evidence paragraphs hand-maintained. Bug fixes can leave the summary unchanged when appropriate.
 - Preserve the MIT license, predecessor notices and [credits](CREDITS.md).
 
 ## Safety, privacy and vehicle boundaries
@@ -39,6 +40,7 @@ For widget behavior changes, use the repository's offline checks:
 
 ```sh
 python3 source/build.py
+python3 source/readme.py --check
 node --test tests/*.test.cjs source/widget.test.cjs
 node source/core.test.cjs
 node source/ui.test.cjs
