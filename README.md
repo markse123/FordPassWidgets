@@ -2,7 +2,9 @@
 
 Your Ford vehicles, at a glance. **FordPassWidgets** is an independent, open-source iPhone widget app for [Scriptable](https://scriptable.app), designed for gas, hybrid, plug-in hybrid and electric Ford vehicles on one Ford account.
 
+<!-- BEGIN GENERATED:version -->
 **v0.1.1** · [Easy installation](https://markse123.github.io/FordPassWidgets/) · [Script source](FordPassWidgets.js) · [Setup and usage](docs/USAGE.md) · [Model support](docs/MODEL-SUPPORT.md) · [Android feature research](docs/ANDROID-FEATURES.md)
+<!-- END GENERATED:version -->
 
 **Runs locally. No project data collection.** The widget runs in Scriptable on your device. The project has no developer-operated backend, analytics or tracking, and does not automatically upload your account details, vehicle data or reports to its maintainers. Settings, tokens and cached readings are stored locally by Scriptable. The app still contacts Ford for sign-in and vehicle data, plus the documented optional location/weather services. [Privacy details](docs/USAGE.md#privacy-and-removal).
 
@@ -10,13 +12,15 @@ This is a new project built on [rushilpunu/FordWidget](https://github.com/rushil
 
 ## What it includes
 
-- A garage for **multiple vehicles on one account**, with Ford's vehicle list and a manual fallback. Each widget can stay attached to a particular vehicle independently of the vehicle currently open in the app.
-- Vehicle readings where reported: fuel/range, EV charge/range, plug and charging status, 12V battery, tires, oil, locks, doors/hood, odometer, outside temperature and parked location. Missing readings remain unknown.
-- Classic, Showcase and Dashboard designs, Home Screen sizes and Lock Screen views, vehicle photos, and US/Metric formats with independent PSI/kPa/bar tire pressure.
-- Four- and six-wheel tire layouts. Owners choose front/rear low-pressure thresholds; **tire alerts start off until configured**.
-- Vehicle-specific feature and control choices. Lock/unlock and engine start/stop retain confirmations and cooldowns; commands start disabled and must be enabled for that vehicle. EV climate/conditioning and charging controls are not implemented.
-- Optional **Pro Power Onboard** status per vehicle. A/B, total and capacity estimates are limited to the corroborated 7.2 kW HEV mapping; other variants show mapping-unverified/raw details. Pro Power is off by default.
-- A confirmed Refresh action, cached-reading ages, configurable alerts and redacted troubleshooting reports.
+<!-- BEGIN GENERATED:features -->
+- A garage for **multiple vehicles on one account**, with Ford's vehicle list and a manual fallback. Each widget can stay attached to a particular vehicle independently of the vehicle currently open in the app. [Details](docs/USAGE.md#choose-vehicles-for-the-app-and-widgets)
+- Vehicle readings where reported: fuel/range, EV charge/range, plug and charging status, 12V battery, tires, oil, locks, doors/hood, odometer, outside temperature and parked location. Missing readings remain unknown; healthy incomplete door/lock reports are labeled partial. [Details](docs/USAGE.md#features-controls-and-alerts)
+- Classic, Showcase and Dashboard designs, Home Screen sizes and Lock Screen views, vehicle photos, and US/Metric formats with independent PSI/kPa/bar tire pressure. [Details](docs/USAGE.md#add-the-widget)
+- Four- and six-wheel tire layouts. Owners choose front/rear low-pressure thresholds; **tire alerts start off until configured**. [Details](docs/USAGE.md#features-controls-and-alerts)
+- Vehicle-specific feature and control choices. Lock/unlock and engine start/stop retain confirmations and cooldowns; commands start disabled and must be enabled for that vehicle. Start/Stop also require owner verification of engine control. EV climate/conditioning and charging controls are not implemented. [Details](docs/MODEL-SUPPORT.md#feature-boundaries)
+- Optional **Pro Power Onboard** status per vehicle. A/B, total and capacity estimates are limited to the corroborated 7.2 kW HEV mapping; other variants show mapping-unverified/raw details. Pro Power is off by default. [Details](docs/USAGE.md#use-pro-power-onboard)
+- A confirmed Refresh action, cached-reading ages, configurable alerts and redacted troubleshooting reports. [Details](docs/USAGE.md#refresh-and-measurement-times)
+<!-- END GENERATED:features -->
 
 Pro Power monitoring was corroborated in the predecessor project on one **US 7.2 kW F-150 PowerBoost**, including A and B loaded together. One raw unit ≈ one watt has only been corroborated on that system. Watts/capacity are only estimated for an HEV profile reporting the known raw 7200 main-capacity value. Other profiles/ratings keep raw status and mode without asserted watt/capacity estimates. Physical outlet mappings and broad vehicle/region coverage remain unverified. This new app still needs live model-by-model testing. It cannot switch Pro Power outlets or Generator Mode.
 

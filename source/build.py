@@ -4,12 +4,14 @@ import hashlib
 import json
 import re
 from release import read_version
+from readme import prepare_readme, write_readme
 
 root = Path(__file__).resolve().parent.parent
 folder = root / 'source'
 version = read_version((folder / 'version.json').read_bytes())
 if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
     raise ValueError('Invalid release version')
+readme_update = prepare_readme(root)
 base_bytes = (folder / 'fordwidget-base.js').read_bytes()
 base = base_bytes.decode('utf-8')
 base_hash = 'f865ea1480ccf65d5409cd418525fb4c4e1c7a91a5ccabef228769344f52f808'
@@ -70,4 +72,5 @@ manifest = {'version': version, 'baseRepository': 'https://github.com/markse123/
     'upstreamRepository': 'https://github.com/rushilpunu/FordWidget',
     'outputSHA256': hashlib.sha256(source.encode()).hexdigest(), 'modules': module_hashes, 'changes': changes}
 (folder / 'build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+write_readme(readme_update)
 print('Built FordPassWidgets ' + version + '; SHA-256 ' + manifest['outputSHA256'])

@@ -29,10 +29,12 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: python3 source/check-tag.py "$RELEASE_TAG"
+      - name: Verify generated README before building
+        run: python3 source/readme.py --check
       - name: Verify deterministic build
         run: |
           python3 source/build.py
-          git diff --exit-code -- "FordPassWidgets.js" source/build-manifest.json
+          git diff --exit-code -- "FordPassWidgets.js" source/build-manifest.json README.md
           node --input-type=module --check < "FordPassWidgets.js"
       - name: Run offline regressions
         run: |

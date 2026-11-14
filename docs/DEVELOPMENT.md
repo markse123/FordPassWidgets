@@ -10,6 +10,7 @@ CI uses Node.js 24 and Python 3.14 on Ubuntu 24.04. Use those maintained version
 
 ```sh
 python3 source/build.py
+python3 source/readme.py --check
 node --test tests/*.test.cjs source/widget.test.cjs
 node source/core.test.cjs
 node source/ui.test.cjs
@@ -21,6 +22,20 @@ python3 source/check-doc-links.py
 The tests mock Scriptable storage, UI and network APIs. Fixtures must be synthetic; the build/tests must never request real Ford telemetry or send vehicle commands. Rebuilding twice must produce identical widget and manifest bytes. Commit relevant source changes, generated output and `source/build-manifest.json` together.
 
 The builder starts with reviewed `source/fordwidget-base.js`, verifies its hash and applies explicit patches plus scoped vehicle profile, telemetry, model UI and controller modules. Patch targets must match exactly once. `source/build-manifest.json` records provenance, module hashes, output hash and changes. Do not edit the generated widget to bypass a source mismatch, and do not remove predecessor license attribution.
+
+## README generation
+
+[The feature catalog](features.json) is the reviewed source for the README's feature summary. `source/version.json` remains the sole app-version authority. The catalog has `schemaVersion: 1` and an ordered `features` array; each feature needs a stable unique lower-case kebab-case `id`, a single-line Markdown `summary`, and a relative `documentation` link to an existing Markdown section. Summaries must keep equipment, opt-in and verification limits explicit. The catalog contains implemented feature summaries, not research candidates or blanket model-support claims.
+
+Adding or changing user-visible behavior requires a catalog review alongside its usage/model-support documentation. Bug fixes do not need a catalog edit if the existing summary is still accurate. Rendering is automatic; discovering the meaning of arbitrary code changes still requires the author's review.
+
+The normal `python3 source/build.py` command validates the catalog and regenerates the README version line and feature bullets, with Details links. You can also run `python3 source/readme.py` without rebuilding the widget, or `python3 source/readme.py --check` for a read-only drift check. Generation is offline and uses no Ford account or external service.
+
+Only the interiors of the README's `GENERATED:version` and `GENERATED:features` marker pairs are replaced. All surrounding bytes, including setup, privacy, credits and the detailed Pro Power evidence, are preserved. Missing, repeated, reversed or nested markers and malformed catalog data fail before the README is written. Review and commit changes to the catalog and generated README together.
+
+The catalog, renderer and generated README are all tracked in Git. Include relevant changes in the same reviewed PR so the source metadata and rendered result have one change history. Restore earlier documentation through a normal revert PR and its required checks; published release tags and installer pins retain their separate protections.
+
+CI checks the committed README **before** running the builder, then includes `README.md` in the generated-file diff afterward. This catches drift even though a normal build repairs it. Generated documentation does not alter the widget, manifest or immutable installer pin, and a catalog/README-only edit needs no app-version bump.
 
 ## Account, vehicle and widget boundaries
 
